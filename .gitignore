@@ -2,7 +2,8 @@
 local/
 
 # Catálogo gerado pela build - nunca commitado (ver docs/ESPECIFICACAO.md §3.2)
-catalog/
+# Barra inicial: só a pasta na raiz, não src/catalog/ (o módulo JS do loader)
+/catalog/
 
 # Node (tools/catalog-builder)
 node_modules/
