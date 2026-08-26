@@ -227,6 +227,16 @@ Formato de entrada: texto simples, uma carta por linha, `1 Sol Ring`. Linhas
 começadas por `//` ignoradas. O commander é identificado por marcação explícita
 ou escolhido pelo utilizador na importação.
 
+Marcação explícita: `CMDR` no lugar da quantidade, ex. `CMDR Cloud,
+Ex-SOLDIER`. Sem essa marca em nenhuma linha, o import mostra as cartas
+resolvidas e o utilizador escolhe o commander antes de guardar — nunca um
+palpite automático (ex. a primeira lenda da lista).
+
+Resolução por nome exato contra `catalog.json.gz`, sem distinguir
+maiúsculas/minúsculas (ao contrário do importador da ManaBox, que já recebe
+nomes de uma fonte fiável). Cartas repetidas em linhas separadas (ex.
+terrenos básicos em blocos por edição) agregam por `oracle_id`.
+
 Fase 2 pode acrescentar import por URL (Moxfield, Archidekt).
 
 ### 4.3 Deck derivado de precon (opcional)
