@@ -189,7 +189,7 @@ IndexedDB, com as seguintes stores:
 |---|---|---|
 | `catalog` | `oracle_id` | Descartável, re-descarregável |
 | `printings` | `scryfall_id` | Descartável, re-descarregável — de `printings.json` (§3.1) |
-| `collection` | `scryfall_id` | Vem da ManaBox |
+| `collection` | `(scryfall_id, foil)` | Vem da ManaBox — chave composta: a Scryfall trata foil e não-foil da mesma impressão como o mesmo `scryfall_id` (`finishes[]` é que distingue), e um export real tem as duas quantidades lado a lado |
 | `decks` | `deck_id` | Inclui `source_precon` opcional (§4.3) |
 | `deck_cards` | `(deck_id, oracle_id)` | |
 | `deck_configs` | `config_id` | Ver §5 |
@@ -210,7 +210,11 @@ colecionador)`, também contra `printings.json`; último recurso, nome exato
 contra `catalog.json.gz`. Agregar quantidades por `oracle_id` para uso na
 análise.
 
-Guardar: `scryfall_id`, `oracle_id`, quantidade, foil, edição.
+Guardar por `(scryfall_id, foil)` (§3.3): `scryfall_id`, `oracle_id`,
+quantidade, foil, edição. Linhas que resolvam para a mesma chave (a ManaBox
+por vezes repete uma impressão entre scans) somam a quantidade em vez de se
+substituírem. A importação substitui a coleção guardada — é sempre o estado
+atual completo, não um incremento.
 **Não** usar estado da carta para nada (ver P4).
 
 Toda a linha que não resolva vai para um relatório de importação visível. Falhas
@@ -455,6 +459,11 @@ com papéis diferentes:
 **Aceite quando:** o catálogo comprimido está abaixo de 10 MB, o export da
 coleção resolve com menos de 1% de falhas não explicadas, e o deck Limit Break importa
 com 100 cartas identificadas.
+
+Coleção real testada (26 de agosto de 2026, 4371 linhas): **0,64% de
+falhas** — as 28 linhas não resolvidas são todas do set `TTMC` (Teenage
+Mutant Ninja Turtles Eternal Tokens), tokens com `legalities.commander:
+not_legal`. Falha explicada, não um problema do importador.
 
 ### Fase 2 — Análise de deck
 - Métricas determinísticas (§7.1)
