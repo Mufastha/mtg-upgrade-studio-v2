@@ -14,8 +14,9 @@
     line-height: 1.5;
   }
   h1 { font-size: 1.4rem; }
-  #status { color: #666; margin-bottom: 1rem; }
-  #status.erro { color: #b00020; }
+  h2 { font-size: 1.1rem; margin-top: 2.5rem; }
+  #status, #import-status { color: #666; margin-bottom: 1rem; }
+  #status.erro, #import-status.erro { color: #b00020; }
   input[type="search"] {
     width: 100%;
     padding: 0.5rem;
@@ -39,6 +40,17 @@
     </thead>
     <tbody id="resultados-corpo"></tbody>
   </table>
+
+  <h2>Importar coleção (ManaBox)</h2>
+  <input type="file" id="manabox-csv" accept=".csv" disabled>
+  <p id="import-status"></p>
+  <table id="import-falhas" hidden>
+    <thead>
+      <tr><th>Linha</th><th>Nome</th><th>Edição</th><th>Nº colecionador</th></tr>
+    </thead>
+    <tbody id="import-falhas-corpo"></tbody>
+  </table>
+
   <script type="module" src="src/app.js"></script>
 </body>
 </html>
