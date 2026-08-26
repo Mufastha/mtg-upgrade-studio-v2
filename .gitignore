@@ -1,0 +1,9 @@
+# Dados pessoais - nunca entram no repositório (ver README)
+local/
+
+# Catálogo gerado pela build - nunca commitado (ver docs/ESPECIFICACAO.md §3.2)
+catalog/
+
+# Node (tools/catalog-builder)
+node_modules/
+.env

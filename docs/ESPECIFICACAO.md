@@ -78,27 +78,31 @@ sentido.
 ### 3.1 Construção do catálogo
 
 Uma GitHub Action semanal (mais execução manual após lançamento de edições)
-produz `catalog.json.gz` e publica-o com a app.
+produz `catalog.json.gz`, `printings.json` e `manifest.json` e publica-os como
+artefacto de deployment do GitHub Pages — não ficam no histórico do
+repositório (ver §3.2).
 
 Fontes:
 
 - Scryfall bulk `oracle_cards` — uma entrada por `oracle_id`
 - Scryfall bulk `oracle_tags` — tags funcionais do projeto Tagger, join por `oracle_id`
 - Scryfall query `is:gamechanger` — lista oficial de Game Changers
-- Scryfall bulk `default_cards` — apenas para calcular o preço mínimo por impressão
+- Scryfall bulk `default_cards` — uma entrada por impressão; alimenta
+  `printings.json` e o cálculo de `price_eur_min`
 
 Filtros aplicados na construção:
 
 - `legalities.commander == "legal"`
 - Excluir tokens, emblemas, cartas de brincadeira e objetos não jogáveis
 
+#### catalog.json.gz
+
 Campos retidos por carta (o resto é descartado — é isto que torna o ficheiro pequeno):
 
 ```
 oracle_id, name, mana_cost, cmc, type_line, oracle_text,
 color_identity, keywords, layout, is_gamechanger,
-edhrec_rank, oracle_tags[], price_eur_min, price_source_date,
-cardmarket_uri
+edhrec_rank, oracle_tags[], price_eur_min, price_source_date
 ```
 
 `price_eur_min` = menor `prices.eur` entre todas as impressões não-foil da
@@ -108,11 +112,35 @@ carta. Se não existir preço em EUR, o campo fica nulo e a carta é tratada com
 **Critério de aceitação:** o ficheiro comprimido tem de ficar abaixo de 10 MB. Se
 não ficar, cortar `oracle_text` para as cartas fora do pool de recomendação.
 
+#### printings.json
+
+Mapa de impressão: é o que permite ao importador da ManaBox (§4.1) resolver
+`scryfall_id → oracle_id` offline, sem depender da rede (P3). `cardmarket_uri`
+é uma propriedade da impressão, não da carta oracle — por isso vive aqui, não
+em `catalog.json.gz`.
+
+Campos por entrada, chave `scryfall_id`:
+
+```
+scryfall_id, oracle_id, set, collector_number, cardmarket_uri
+```
+
+Construído a partir do mesmo bulk `default_cards` que alimenta `price_eur_min`,
+sujeito aos mesmos filtros de legalidade e tipo de objeto do catálogo.
+
 ### 3.2 Versionamento e atualização
 
-O catálogo publica um `manifest.json` com `{version, built_at, card_count, sha}`.
-A app compara com o que tem em cache e descarrega se for diferente. O
-utilizador não faz nada.
+`catalog.json.gz`, `printings.json` e `manifest.json` **não são commitados.**
+Cada build semanal deixaria um blob de vários MB no histórico do
+repositório, permanentemente, sem nenhum benefício — só o código e os dados
+de referência escritos à mão (como `bracket-rules.json`) vivem no git. A
+Action gera os três ficheiros no runner e publica-os como artefacto de
+deployment do GitHub Pages (`actions/upload-pages-artifact` +
+`actions/deploy-pages`), lado a lado com os ficheiros estáticos da app.
+
+`manifest.json` tem `{version, built_at, card_count, sha}`. A app compara com
+o que tem em cache (IndexedDB) e descarrega `catalog.json.gz` e
+`printings.json` de novo se for diferente. O utilizador não faz nada.
 
 ### 3.3 Armazenamento local
 
@@ -121,6 +149,7 @@ IndexedDB, com as seguintes stores:
 | Store | Chave | Notas |
 |---|---|---|
 | `catalog` | `oracle_id` | Descartável, re-descarregável |
+| `printings` | `scryfall_id` | Descartável, re-descarregável — de `printings.json` (§3.1) |
 | `collection` | `scryfall_id` | Vem da ManaBox |
 | `decks` | `deck_id` | Inclui `source_precon` opcional (§4.3) |
 | `deck_cards` | `(deck_id, oracle_id)` | |
@@ -136,9 +165,11 @@ existir sincronização, é a única proteção contra limpar os dados do browse
 
 ### 4.1 Coleção (ManaBox CSV)
 
-Resolução por `scryfall_id` quando presente; fallback para
-`(nome, código de edição, número de colecionador)`; último recurso, nome exato.
-Agregar quantidades por `oracle_id` para uso na análise.
+Resolução contra `printings.json` (§3.1): `scryfall_id` quando presente resolve
+direto para `oracle_id`; fallback para `(nome, código de edição, número de
+colecionador)`, também contra `printings.json`; último recurso, nome exato
+contra `catalog.json.gz`. Agregar quantidades por `oracle_id` para uso na
+análise.
 
 Guardar: `scryfall_id`, `oracle_id`, quantidade, foil, edição.
 **Não** usar estado da carta para nada (ver P4).
@@ -354,7 +385,8 @@ Restrições da plataforma a respeitar: até 150 entradas por wants list. Listas
 maiores são divididas automaticamente pela app.
 
 A exportação inclui também uma versão com link direto do Cardmarket por carta
-(`cardmarket_uri` do catálogo) e a lista de proxies em separado.
+(`cardmarket_uri` de `printings.json`, §3.1 — da mesma impressão usada para
+`price_eur_min`) e a lista de proxies em separado.
 
 **A app decide *o quê* comprar. O Cardmarket decide *onde* e *a que preço*.** A
 otimização de estado, vendedor e portes é feita pelo shopping wizard deles, que
@@ -374,7 +406,8 @@ com papéis diferentes:
   Limit Break ainda não tem esse histórico.
 
 ### Fase 1 — Fundação de dados
-- GitHub Action constrói e publica `catalog.json.gz` + `manifest.json`
+- GitHub Action constrói e publica `catalog.json.gz` + `printings.json` +
+  `manifest.json` como artefacto do Pages (nunca commitados, §3.2)
 - App carrega e cacheia o catálogo; funciona offline depois disso
 - Importador ManaBox com relatório de falhas
 - Importador de decklist em texto
