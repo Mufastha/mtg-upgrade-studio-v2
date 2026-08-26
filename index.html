@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTG Upgrade Studio</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.4rem; }
+  #status { color: #666; margin-bottom: 1rem; }
+  #status.erro { color: #b00020; }
+  input[type="search"] {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+    margin-bottom: 1rem;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; }
+  td.preco { text-align: right; white-space: nowrap; }
+  .desconhecido { color: #999; font-style: italic; }
+</style>
+</head>
+<body>
+  <h1>MTG Upgrade Studio</h1>
+  <p id="status">A carregar catálogo…</p>
+  <input type="search" id="pesquisa" placeholder="Pesquisar carta por nome…" disabled>
+  <table id="resultados" hidden>
+    <thead>
+      <tr><th>Nome</th><th>Custo</th><th>Tipo</th><th>Preço (est.)</th></tr>
+    </thead>
+    <tbody id="resultados-corpo"></tbody>
+  </table>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
