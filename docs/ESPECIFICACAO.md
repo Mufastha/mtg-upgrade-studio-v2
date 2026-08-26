@@ -82,10 +82,14 @@ produz `catalog.json.gz`, `printings.json` e `manifest.json` e publica-os como
 artefacto de deployment do GitHub Pages — não ficam no histórico do
 repositório (ver §3.2).
 
-Fontes:
+Fontes (bulk files descarregados como `.jsonl.gz` — NDJSON gzipped, um objeto
+por linha, via `jsonl_download_uri` listado em `GET /bulk-data`; não é um único
+array JSON):
 
 - Scryfall bulk `oracle_cards` — uma entrada por `oracle_id`
-- Scryfall bulk `oracle_tags` — tags funcionais do projeto Tagger, join por `oracle_id`
+- Scryfall bulk `oracle_tags` — tags funcionais do projeto Tagger. Cada
+  registo é uma *tag* com uma lista `taggings` de `oracle_id`, não o
+  contrário — a construção inverte isto para obter `oracle_tags[]` por carta
 - Scryfall query `is:gamechanger` — lista oficial de Game Changers
 - Scryfall bulk `default_cards` — uma entrada por impressão; alimenta
   `printings.json` e o cálculo de `price_eur_min`
@@ -102,12 +106,18 @@ Campos retidos por carta (o resto é descartado — é isto que torna o ficheiro
 ```
 oracle_id, name, mana_cost, cmc, type_line, oracle_text,
 color_identity, keywords, layout, is_gamechanger,
-edhrec_rank, oracle_tags[], price_eur_min, price_source_date
+edhrec_rank, oracle_tags[], price_eur_min, price_source_date,
+price_source_scryfall_id
 ```
 
 `price_eur_min` = menor `prices.eur` entre todas as impressões não-foil da
 carta. Se não existir preço em EUR, o campo fica nulo e a carta é tratada como
 "preço desconhecido", nunca como grátis.
+
+`price_source_scryfall_id` = `scryfall_id` da impressão que gerou
+`price_eur_min`. É a chave para a exportação Cardmarket (§10) ir buscar o
+`cardmarket_uri` certo a `printings.json` — sem isto não há como saber qual
+das N impressões de uma carta foi a mais barata.
 
 **Critério de aceitação:** o ficheiro comprimido tem de ficar abaixo de 10 MB. Se
 não ficar, cortar `oracle_text` para as cartas fora do pool de recomendação.
