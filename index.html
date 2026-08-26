@@ -15,16 +15,29 @@
   }
   h1 { font-size: 1.4rem; }
   h2 { font-size: 1.1rem; margin-top: 2.5rem; }
-  #status, #import-status { color: #666; margin-bottom: 1rem; }
-  #status.erro, #import-status.erro { color: #b00020; }
-  input[type="search"] {
+  #status, #import-status, #decklist-status, #dados-status {
+    color: #666;
+    margin-bottom: 1rem;
+  }
+  #status.erro, #import-status.erro, #decklist-status.erro, #dados-status.erro {
+    color: #b00020;
+  }
+  input[type="search"], input[type="text"], textarea, select {
     width: 100%;
     padding: 0.5rem;
     font-size: 1rem;
+    font-family: inherit;
     box-sizing: border-box;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  textarea { font-family: ui-monospace, monospace; font-size: 0.9rem; }
+  button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 1rem; }
   th, td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; }
   td.preco { text-align: right; white-space: nowrap; }
   .desconhecido { color: #999; font-style: italic; }
@@ -50,6 +63,26 @@
     </thead>
     <tbody id="import-falhas-corpo"></tbody>
   </table>
+
+  <h2>Importar deck (texto)</h2>
+  <textarea id="decklist-texto" rows="10" placeholder="1 Sol Ring&#10;CMDR Cloud, Ex-SOLDIER&#10;// comentário ignorado" disabled></textarea>
+  <input type="text" id="decklist-nome" placeholder="Nome do deck" disabled>
+  <button id="decklist-processar" disabled>Processar</button>
+  <p id="decklist-status"></p>
+  <table id="decklist-falhas" hidden>
+    <thead><tr><th>Linha</th><th>Texto</th></tr></thead>
+    <tbody id="decklist-falhas-corpo"></tbody>
+  </table>
+  <div id="decklist-commander-picker" hidden>
+    <label for="decklist-commander-select">O commander não foi marcado com "CMDR" — escolhe-o:</label>
+    <select id="decklist-commander-select"></select>
+  </div>
+  <button id="decklist-guardar" hidden>Guardar deck</button>
+
+  <h2>Dados pessoais</h2>
+  <button id="dados-exportar" disabled>Exportar dados (JSON)</button>
+  <input type="file" id="dados-importar" accept=".json" disabled>
+  <p id="dados-status"></p>
 
   <script type="module" src="src/app.js"></script>
 </body>

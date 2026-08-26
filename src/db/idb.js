@@ -1,9 +1,8 @@
 const DB_NAME = 'mtg-upgrade-studio';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
-// Só as stores usadas até agora. As restantes de §3.3 da especificação
-// (decks, deck_cards, deck_configs, runs) entram quando os outros
-// importadores e o motor de recomendação existirem.
+// Só as stores usadas até agora. deck_configs e runs (§3.3) entram com o
+// motor de recomendação.
 //
 // collection usa chave composta (scryfall_id, foil): o export da ManaBox tem
 // foil e não-foil da mesma impressão sob o MESMO scryfall_id (é a Scryfall a
@@ -13,6 +12,8 @@ const STORES = {
   catalog: 'oracle_id',
   printings: 'scryfall_id',
   collection: ['scryfall_id', 'foil'],
+  decks: 'deck_id',
+  deck_cards: ['deck_id', 'oracle_id'],
   meta: 'key',
 };
 
