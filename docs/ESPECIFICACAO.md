@@ -122,7 +122,7 @@ IndexedDB, com as seguintes stores:
 |---|---|---|
 | `catalog` | `oracle_id` | Descartável, re-descarregável |
 | `collection` | `scryfall_id` | Vem da ManaBox |
-| `decks` | `deck_id` | |
+| `decks` | `deck_id` | Inclui `source_precon` opcional (§4.3) |
 | `deck_cards` | `(deck_id, oracle_id)` | |
 | `deck_configs` | `config_id` | Ver §5 |
 | `runs` | `run_id` | Execuções + snapshots de preço |
@@ -154,6 +154,32 @@ começadas por `//` ignoradas. O commander é identificado por marcação explí
 ou escolhido pelo utilizador na importação.
 
 Fase 2 pode acrescentar import por URL (Moxfield, Archidekt).
+
+### 4.3 Deck derivado de precon (opcional)
+
+Um deck pode declarar de que precon partiu:
+
+```
+deck {
+  deck_id, name, commander_oracle_id,
+  source_precon: {
+    precon_id,               // identificador do produto, ex. "para-food-and-fellowship"
+    name,                    // nome legível do precon
+    base_cards: [oracle_id]  // as 100 cartas originais da lista do produto
+  } | null
+}
+```
+
+`base_cards` resolve-se contra o catálogo da mesma forma que a decklist em
+§4.2 (texto simples, `1 Sol Ring` por linha), tipicamente colando a decklist
+oficial do precon publicada pela WotC.
+
+**Regra:** uma carta presente em `base_cards` nunca aparece como recomendação
+de compra (balde "comprar" ou "proxy" em §9), independentemente do score que
+receba na Fase C. O motor de recomendação existe para sugerir *upgrades* sobre
+a base do precon, não para recomprar a própria base. Isto é um filtro duro
+(§8 Fase B), não um ajuste de score — ver a entrada correspondente nessa
+secção.
 
 ---
 
@@ -275,8 +301,9 @@ commander. Enriquecido por sobreposição de oracle tags com o perfil do deck e
 por dados de commander (EDHREC).
 
 **Fase B — Filtros duros.** Legalidade, identidade de cor, barreiras do bracket
-alvo, `exclude_tags`, `max_cmc`, Reserved List se excluída, cartas já no deck.
-Uma carta que falhe qualquer filtro não continua.
+alvo, `exclude_tags`, `max_cmc`, Reserved List se excluída, cartas já no deck,
+cartas em `source_precon.base_cards` (§4.3) quando o deck tiver precon de
+origem declarado. Uma carta que falhe qualquer filtro não continua.
 
 **Fase C — Scoring.** Soma ponderada, com os pesos configuráveis e visíveis:
 
