@@ -1,0 +1,53 @@
+name: Build and deploy catalog
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # segunda-feira às 06:00 UTC
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Construir catálogo
+        working-directory: tools/catalog-builder
+        run: node build.mjs
+
+      - name: Montar site para o Pages
+        run: |
+          mkdir -p dist
+          [ -f index.html ] && cp index.html dist/
+          [ -d src ] && cp -r src dist/
+          [ -d data ] && cp -r data dist/
+          cp -r catalog dist/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
