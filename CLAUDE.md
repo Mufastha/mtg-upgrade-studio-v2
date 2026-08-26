@@ -60,4 +60,6 @@ e atualizar a especificação primeiro — não contorná-la em código.
 Fase 1 (fundação de dados) por começar. Ver §11 da especificação para os
 critérios de aceitação.
 
-Deck de validação em todas as fases: **Shelob** (aranhas / deathtouch / Food).
+Dois decks de validação, com papéis diferentes (ver §11 da especificação):
+- **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
+- **Shelob** (aranhas / deathtouch / Food) — Fases 4 e 5.

@@ -364,7 +364,14 @@ faz isso melhor do que qualquer coisa construída aqui.
 
 ## 11. Fases e critérios de aceitação
 
-Cada fase termina com um commit e com algo utilizável. Deck de validação: **Shelob**.
+Cada fase termina com um commit e com algo utilizável. Dois decks de validação,
+com papéis diferentes:
+
+- **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3. É o caso de uso real
+  (upgrade de precon) e o que exercita o campo `source_precon` (§4.3).
+- **Shelob** (aranhas / deathtouch / Food) — Fases 4 e 5. Julgar se uma
+  recomendação é boa exige um deck que o utilizador já conhece a fundo; o
+  Limit Break ainda não tem esse histórico.
 
 ### Fase 1 — Fundação de dados
 - GitHub Action constrói e publica `catalog.json.gz` + `manifest.json`
@@ -374,7 +381,7 @@ Cada fase termina com um commit e com algo utilizável. Deck de validação: **S
 - Exportar/importar JSON de dados pessoais
 
 **Aceite quando:** o catálogo comprimido está abaixo de 10 MB, o export da
-coleção resolve com menos de 1% de falhas não explicadas, e o deck Shelob importa
+coleção resolve com menos de 1% de falhas não explicadas, e o deck Limit Break importa
 com 100 cartas identificadas.
 
 ### Fase 2 — Análise de deck
@@ -383,7 +390,7 @@ com 100 cartas identificadas.
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)
 
-**Aceite quando:** a checklist do Shelob corresponde ao que o EDHPowerLevel mostra
+**Aceite quando:** a checklist do Limit Break corresponde ao que o EDHPowerLevel mostra
 para as barreiras verificáveis automaticamente.
 
 ### Fase 3 — Cruzamento e exportação
@@ -400,7 +407,8 @@ linhas rejeitadas.
 - Sincronização Supabase dos dados pessoais
 
 **Aceite quando:** duas execuções com os mesmos parâmetros dão o mesmo resultado,
-e nenhuma carta recomendada quebra uma barreira do bracket alvo.
+nenhuma carta recomendada quebra uma barreira do bracket alvo, e as recomendações
+para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 
 ### Fase 5 — Reordenação e integrações
 - Fase D (§8): reordenação e justificações
