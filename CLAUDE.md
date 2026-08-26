@@ -47,6 +47,10 @@ e atualizar a especificação primeiro — não contorná-la em código.
    carta que a app acha que o utilizador não tem.
 10. **Local-first.** Nenhum filtro do motor depende da rede. A app funciona
     offline depois do primeiro carregamento.
+11. **`printings.json` carrega-se sob demanda, nunca no arranque.** Tem 32 MB
+    (§3.1 da especificação) e só serve para o importador da ManaBox resolver
+    `scryfall_id → oracle_id` (§4.1). O arranque da app só descarrega
+    `catalog.json.gz` + `manifest.json`.
 
 ## Convenções
 

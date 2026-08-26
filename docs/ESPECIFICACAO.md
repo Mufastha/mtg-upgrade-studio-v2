@@ -80,7 +80,16 @@ sentido.
 Uma GitHub Action semanal (mais execução manual após lançamento de edições)
 produz `catalog.json.gz`, `printings.json` e `manifest.json` e publica-os como
 artefacto de deployment do GitHub Pages — não ficam no histórico do
-repositório (ver §3.2).
+repositório (ver §3.2). O builder escreve para `catalog/` na raiz do
+repositório (gitignored); o workflow copia essa pasta tal e qual para dentro
+de `dist/`, que é o que `actions/upload-pages-artifact` publica. Os três
+ficheiros ficam então em `/catalog/` a partir da raiz do site publicado:
+
+```
+https://<utilizador>.github.io/<repo>/catalog/catalog.json.gz
+https://<utilizador>.github.io/<repo>/catalog/printings.json
+https://<utilizador>.github.io/<repo>/catalog/manifest.json
+```
 
 Fontes (bulk files descarregados como `.jsonl.gz` — NDJSON gzipped, um objeto
 por linha, via `jsonl_download_uri` listado em `GET /bulk-data`; não é um único
@@ -122,6 +131,8 @@ das N impressões de uma carta foi a mais barata.
 **Critério de aceitação:** o ficheiro comprimido tem de ficar abaixo de 10 MB. Se
 não ficar, cortar `oracle_text` para as cartas fora do pool de recomendação.
 
+Medido em produção (26 de agosto de 2026, 31 830 cartas): **5,17 MB**.
+
 #### printings.json
 
 Mapa de impressão: é o que permite ao importador da ManaBox (§4.1) resolver
@@ -138,6 +149,12 @@ scryfall_id, oracle_id, set, collector_number, cardmarket_uri
 Construído a partir do mesmo bulk `default_cards` que alimenta `price_eur_min`,
 sujeito aos mesmos filtros de legalidade e tipo de objeto do catálogo.
 
+Medido em produção (26 de agosto de 2026, 106 687 impressões): **32 MB em
+disco, não comprimido** (ao contrário de `catalog.json.gz`). O GitHub Pages
+comprime-o em trânsito de forma transparente (~6,4 MB pela rede), mas o
+ficheiro em si não leva gzip — é só usado sob pedido, nunca no arranque da app
+(ver a invariante 11 no CLAUDE.md e §3.2).
+
 ### 3.2 Versionamento e atualização
 
 `catalog.json.gz`, `printings.json` e `manifest.json` **não são commitados.**
@@ -149,8 +166,20 @@ deployment do GitHub Pages (`actions/upload-pages-artifact` +
 `actions/deploy-pages`), lado a lado com os ficheiros estáticos da app.
 
 `manifest.json` tem `{version, built_at, card_count, sha}`. A app compara com
-o que tem em cache (IndexedDB) e descarrega `catalog.json.gz` e
-`printings.json` de novo se for diferente. O utilizador não faz nada.
+o que tem em cache (IndexedDB) e descarrega `catalog.json.gz` de novo se for
+diferente. O utilizador não faz nada.
+
+**`printings.json` carrega-se à parte, sob demanda — nunca no arranque.** É
+só necessário no importador da ManaBox (§4.1); 32 MB não têm lugar no
+carregamento inicial da app. Ver a invariante 11 no CLAUDE.md.
+
+Nuance de transporte a ter em conta no loader: `catalog.json.gz` é gzip como
+*formato de ficheiro* (`Content-Type: application/gzip`, sem
+`Content-Encoding`) — chega ao browser ainda comprimido e tem de ser
+descomprimido explicitamente (`DecompressionStream('gzip')`, nativo, sem
+dependência nova). `printings.json` é servido sem compressão de ficheiro, mas
+o GitHub Pages aplica `Content-Encoding: gzip` em trânsito de forma
+transparente — o `fetch()` já devolve JSON descomprimido, sem passo manual.
 
 ### 3.3 Armazenamento local
 
