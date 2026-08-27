@@ -4,7 +4,7 @@ import { getAll } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows } from './ui/deck-view.js';
 import { resolveManaBoxCsv, saveCollection } from './importers/manabox.js';
-import { resolveDecklist, saveDeck } from './importers/decklist.js';
+import { resolveDecklist, saveDeck, renameDeck, deleteDeck } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData } from './data/personal.js';
 
 const statusEl = document.getElementById('status');
@@ -181,7 +181,11 @@ function setupDeckView(cards) {
           <td>${s.cardCount}</td>
           <td>${s.isPrecon ? escapeHtml(s.preconName) : '—'}</td>
           <td class="${s.legality.legal ? 'legal' : 'ilegal'}">${legalityText}</td>
-          <td><button type="button" data-deck-id="${s.deck_id}">${expandedDeckId === s.deck_id ? 'Fechar' : 'Ver cartas'}</button></td>
+          <td>
+            <button type="button" data-action="ver" data-deck-id="${s.deck_id}">${expandedDeckId === s.deck_id ? 'Fechar' : 'Ver cartas'}</button>
+            <button type="button" data-action="renomear" data-deck-id="${s.deck_id}">Renomear</button>
+            <button type="button" data-action="apagar" data-deck-id="${s.deck_id}">Apagar</button>
+          </td>
         </tr>`;
 
         // §7.0: painel de validação por deck, sempre visível quando há
@@ -203,11 +207,36 @@ function setupDeckView(cards) {
     decksTableEl.hidden = false;
   }
 
-  decksBodyEl.addEventListener('click', (ev) => {
+  decksBodyEl.addEventListener('click', async (ev) => {
     const btn = ev.target.closest('button[data-deck-id]');
     if (!btn) return;
-    expandedDeckId = expandedDeckId === btn.dataset.deckId ? null : btn.dataset.deckId;
-    render();
+    const { deckId, action } = btn.dataset;
+
+    if (action === 'ver') {
+      expandedDeckId = expandedDeckId === deckId ? null : deckId;
+      render();
+      return;
+    }
+
+    if (action === 'renomear') {
+      const atual = decks.find((d) => d.deck_id === deckId)?.name ?? '';
+      const novoNome = window.prompt('Novo nome do deck:', atual);
+      if (novoNome == null) return; // cancelado
+      const trimmed = novoNome.trim();
+      if (!trimmed || trimmed === atual) return;
+      await renameDeck(deckId, trimmed);
+      await refresh();
+      return;
+    }
+
+    if (action === 'apagar') {
+      const alvo = decks.find((d) => d.deck_id === deckId);
+      const confirmado = window.confirm(`Apagar o deck "${alvo?.name}"? Esta ação não pode ser desfeita.`);
+      if (!confirmado) return;
+      await deleteDeck(deckId);
+      if (expandedDeckId === deckId) expandedDeckId = null;
+      await refresh();
+    }
   });
 
   async function refresh() {
@@ -299,16 +328,25 @@ function setupDecklistImport(cards, deckView) {
   decklistSaveBtn.addEventListener('click', async () => {
     if (!lastResult) return;
     const commanderOracleId = lastResult.commanderOracleId ?? commanderSelectEl.value;
-    const name = decklistNameEl.value.trim() || 'Deck sem nome';
+    const commanderName = cards.find((c) => c.oracle_id === commanderOracleId)?.name ?? null;
+    const typedName = decklistNameEl.value.trim();
 
     // §4.3: as próprias cartas resolvidas desta decklist são a base do
     // precon - nunca aparecerão como recomendação de compra para este deck.
-    const sourcePrecon = isPreconEl.checked
-      ? {
-          name: preconNameEl.value.trim() || name,
-          base_cards: lastResult.cards.map((c) => c.oracle_id),
-        }
-      : null;
+    // Nome vazio: usa o do precon (se for precon) ou o do commander -
+    // "Deck sem nome" só como último recurso, se nem isso houver.
+    let name;
+    let sourcePrecon = null;
+    if (isPreconEl.checked) {
+      const preconName = preconNameEl.value.trim() || commanderName || 'Precon';
+      name = typedName || preconName;
+      sourcePrecon = {
+        name: preconName,
+        base_cards: lastResult.cards.map((c) => c.oracle_id),
+      };
+    } else {
+      name = typedName || commanderName || 'Deck sem nome';
+    }
 
     const deckId = await saveDeck({ name, commanderOracleId, cards: lastResult.cards, sourcePrecon });
     await deckView.refresh();

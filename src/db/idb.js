@@ -71,3 +71,34 @@ export async function getAll(storeName) {
   const db = await openDb();
   return request(db.transaction(storeName, 'readonly').objectStore(storeName).getAll());
 }
+
+export async function getRecord(storeName, key) {
+  const db = await openDb();
+  return request(db.transaction(storeName, 'readonly').objectStore(storeName).get(key));
+}
+
+export async function deleteRecord(storeName, key) {
+  const db = await openDb();
+  await request(db.transaction(storeName, 'readwrite').objectStore(storeName).delete(key));
+}
+
+// Sem índice por deck_id em deck_cards - percorre a store com um cursor e
+// apaga o que corresponder ao predicado. Só usado para apagar as cartas de
+// um deck apagado; a store é pequena o suficiente para isto ser suficiente.
+export async function deleteWhere(storeName, predicate) {
+  const db = await openDb();
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  return new Promise((resolve, reject) => {
+    const cursorReq = store.openCursor();
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (!cursor) return;
+      if (predicate(cursor.value)) cursor.delete();
+      cursor.continue();
+    };
+    cursorReq.onerror = () => reject(cursorReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}

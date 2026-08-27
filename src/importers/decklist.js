@@ -1,4 +1,4 @@
-import { putAll } from '../db/idb.js';
+import { putAll, getRecord, deleteRecord, deleteWhere } from '../db/idb.js';
 
 // Formato do §4.2: texto simples, uma carta por linha, "1 Sol Ring". Linhas
 // vazias e começadas por // são ignoradas.
@@ -88,8 +88,9 @@ export function resolveDecklist(text, { cards }) {
   };
 }
 
-// Cada import cria um deck novo - não atualiza um deck existente (essa é
-// uma funcionalidade de edição de deck, fora do âmbito desta peça).
+// Cada import cria um deck novo - não atualiza a lista de cartas de um deck
+// existente (isso é edição de deck, fora do âmbito desta peça). Renomear e
+// apagar são as duas exceções mínimas, abaixo.
 export async function saveDeck({ name, commanderOracleId, cards, sourcePrecon = null }) {
   const deckId = crypto.randomUUID();
   await putAll('decks', [
@@ -105,4 +106,15 @@ export async function saveDeck({ name, commanderOracleId, cards, sourcePrecon = 
     cards.map((c) => ({ deck_id: deckId, oracle_id: c.oracle_id, quantity: c.quantity }))
   );
   return deckId;
+}
+
+export async function renameDeck(deckId, name) {
+  const deck = await getRecord('decks', deckId);
+  if (!deck) throw new Error('Deck não encontrado.');
+  await putAll('decks', [{ ...deck, name }]);
+}
+
+export async function deleteDeck(deckId) {
+  await deleteRecord('decks', deckId);
+  await deleteWhere('deck_cards', (dc) => dc.deck_id === deckId);
 }
