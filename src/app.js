@@ -39,7 +39,6 @@ const decklistSaveBtn = document.getElementById('decklist-guardar');
 const isPreconEl = document.getElementById('decklist-e-precon');
 const preconFieldsEl = document.getElementById('decklist-precon-campos');
 const preconNameEl = document.getElementById('decklist-precon-nome');
-const preconIdEl = document.getElementById('decklist-precon-id');
 
 const exportBtn = document.getElementById('dados-exportar');
 const importInputEl = document.getElementById('dados-importar');
@@ -291,7 +290,6 @@ function setupDecklistImport(cards, deckView) {
     // precon - nunca aparecerão como recomendação de compra para este deck.
     const sourcePrecon = isPreconEl.checked
       ? {
-          precon_id: preconIdEl.value.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           name: preconNameEl.value.trim() || name,
           base_cards: lastResult.cards.map((c) => c.oracle_id),
         }

@@ -260,8 +260,7 @@ Um deck pode declarar de que precon partiu:
 deck {
   deck_id, name, commander_oracle_id,
   source_precon: {
-    precon_id,               // identificador do produto, ex. "para-food-and-fellowship"
-    name,                    // nome legível do precon
+    name,                    // nome legível do precon, mostrado na lista de decks
     base_cards: [oracle_id]  // as 100 cartas originais da lista do produto
   } | null
 }
