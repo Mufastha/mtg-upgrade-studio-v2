@@ -14,6 +14,7 @@ const tbodyEl = document.getElementById('resultados-corpo');
 
 const collectionSearchEl = document.getElementById('colecao-pesquisa');
 const collectionStatusEl = document.getElementById('colecao-status');
+const collectionPositionEl = document.getElementById('colecao-posicao');
 const collectionTableEl = document.getElementById('colecao-tabela');
 const collectionBodyEl = document.getElementById('colecao-corpo');
 const collectionShowMoreBtn = document.getElementById('colecao-mostrar-mais');
@@ -108,12 +109,15 @@ function setupCollectionView(cards) {
 
     if (totalEntries === 0) {
       collectionStatusEl.textContent = 'Coleção vazia — importa um CSV da ManaBox ou um JSON exportado antes.';
+      collectionPositionEl.textContent = '';
     } else {
       const q = collectionSearchEl.value.trim();
       collectionStatusEl.textContent =
         `${totalEntries} entradas, ${totalCopies} cópias no total` +
-        (q ? ` — ${matchedCount} a corresponder a "${q}"` : '') +
-        (rows.length < matchedCount ? `, a mostrar ${rows.length}.` : '.');
+        (q ? ` — ${matchedCount} a corresponder a "${q}".` : '.');
+      // matchedCount é o total depois do filtro, não o da coleção toda -
+      // com pesquisa ativa o "de N" tem de refletir isso.
+      collectionPositionEl.textContent = `A mostrar ${rows.length} de ${matchedCount}.`;
     }
 
     collectionBodyEl.innerHTML = rows
