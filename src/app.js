@@ -174,19 +174,30 @@ function setupDeckView(cards) {
 
     decksBodyEl.innerHTML = summaries
       .map((s) => {
+        const legalityText = s.legality.legal ? '✓ Legal' : `⚠ ${s.legality.problems.length} problema(s)`;
         const summaryRow = `<tr>
           <td>${escapeHtml(s.name)}</td>
           <td>${escapeHtml(s.commanderName)}</td>
           <td>${s.cardCount}</td>
           <td>${s.isPrecon ? escapeHtml(s.preconName) : '—'}</td>
+          <td class="${s.legality.legal ? 'legal' : 'ilegal'}">${legalityText}</td>
           <td><button type="button" data-deck-id="${s.deck_id}">${expandedDeckId === s.deck_id ? 'Fechar' : 'Ver cartas'}</button></td>
         </tr>`;
-        if (expandedDeckId !== s.deck_id) return summaryRow;
+
+        // §7.0: painel de validação por deck, sempre visível quando há
+        // problemas - nunca bloqueia a importação, só avisa.
+        const problemsRow = s.legality.legal
+          ? ''
+          : `<tr class="deck-problemas"><td colspan="6">${s.legality.problems
+              .map((p) => `⚠ ${p.card ? `<strong>${escapeHtml(p.card)}</strong>: ` : ''}${escapeHtml(p.message)}`)
+              .join('<br>')}</td></tr>`;
+
+        if (expandedDeckId !== s.deck_id) return summaryRow + problemsRow;
 
         const cardList = buildDeckCardRows(s.deck_id, deckCards, cardsByOracleId)
           .map((c) => `${c.quantity}x ${escapeHtml(c.name)}`)
           .join('<br>');
-        return `${summaryRow}<tr><td colspan="5">${cardList}</td></tr>`;
+        return `${summaryRow}${problemsRow}<tr><td colspan="6">${cardList}</td></tr>`;
       })
       .join('');
     decksTableEl.hidden = false;

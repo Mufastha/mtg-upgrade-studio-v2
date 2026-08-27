@@ -44,6 +44,9 @@
   th, td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; }
   td.preco { text-align: right; white-space: nowrap; }
   .desconhecido { color: #999; font-style: italic; }
+  td.legal { color: #1a7a3c; white-space: nowrap; }
+  td.ilegal { color: #9a6700; white-space: nowrap; }
+  tr.deck-problemas td { background: #fff8e6; font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -73,7 +76,7 @@
   <p id="decks-status"></p>
   <table id="decks-tabela" hidden>
     <thead>
-      <tr><th>Nome</th><th>Commander</th><th>Cartas</th><th>Precon</th><th></th></tr>
+      <tr><th>Nome</th><th>Commander</th><th>Cartas</th><th>Precon</th><th>Legalidade</th><th></th></tr>
     </thead>
     <tbody id="decks-corpo"></tbody>
   </table>
