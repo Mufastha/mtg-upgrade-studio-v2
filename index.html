@@ -15,7 +15,7 @@
   }
   h1 { font-size: 1.4rem; }
   h2 { font-size: 1.1rem; margin-top: 2.5rem; }
-  #status, #import-status, #decklist-status, #dados-status {
+  #status, #import-status, #decklist-status, #dados-status, #colecao-status {
     color: #666;
     margin-bottom: 1rem;
   }
@@ -55,6 +55,15 @@
       <tr><th>Nome</th><th>Custo</th><th>Tipo</th><th>Preço (est.)</th></tr>
     </thead>
     <tbody id="resultados-corpo"></tbody>
+  </table>
+
+  <h2>Coleção guardada</h2>
+  <p id="colecao-status"></p>
+  <table id="colecao-tabela" hidden>
+    <thead>
+      <tr><th>Nome</th><th>Edição</th><th>Quantidade</th><th>Foil</th></tr>
+    </thead>
+    <tbody id="colecao-corpo"></tbody>
   </table>
 
   <h2>Importar coleção (ManaBox)</h2>

@@ -1,5 +1,7 @@
 import { loadCatalog } from './catalog/loader.js';
 import { loadPrintings } from './catalog/printings.js';
+import { getAll } from './db/idb.js';
+import { buildCollectionRows } from './ui/collection-view.js';
 import { resolveManaBoxCsv, saveCollection } from './importers/manabox.js';
 import { resolveDecklist, saveDeck } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData } from './data/personal.js';
@@ -8,6 +10,10 @@ const statusEl = document.getElementById('status');
 const searchEl = document.getElementById('pesquisa');
 const tableEl = document.getElementById('resultados');
 const tbodyEl = document.getElementById('resultados-corpo');
+
+const collectionStatusEl = document.getElementById('colecao-status');
+const collectionTableEl = document.getElementById('colecao-tabela');
+const collectionBodyEl = document.getElementById('colecao-corpo');
 
 const csvInputEl = document.getElementById('manabox-csv');
 const importStatusEl = document.getElementById('import-status');
@@ -76,9 +82,50 @@ function renderImportFailures(failures) {
   failuresTableEl.hidden = false;
 }
 
+// Lista simples da coleção guardada - só assim se confirma visualmente que
+// um import (ManaBox ou JSON) gravou mesmo os dados. Sem imagens, filtrável
+// pela mesma pesquisa do catálogo (mesmo #pesquisa, dois resultados).
+function setupCollectionView(cards) {
+  const cardsByOracleId = new Map(cards.map((c) => [c.oracle_id, c]));
+  let entries = [];
+
+  function render(query) {
+    const { rows, totalEntries, totalCopies } = buildCollectionRows(entries, cardsByOracleId, query);
+
+    if (totalEntries === 0) {
+      collectionStatusEl.textContent = 'Coleção vazia — importa um CSV da ManaBox ou um JSON exportado antes.';
+    } else {
+      const q = query.trim();
+      collectionStatusEl.textContent =
+        `${totalEntries} entradas, ${totalCopies} cópias no total` +
+        (q ? ` — ${rows.length} a mostrar para "${q}".` : '.');
+    }
+
+    collectionBodyEl.innerHTML = rows
+      .map(
+        (e) => `<tr>
+          <td>${escapeHtml(e.card?.name ?? e.oracle_id)}</td>
+          <td>${escapeHtml(e.set)}</td>
+          <td>${e.quantity}</td>
+          <td>${escapeHtml(e.foil)}</td>
+        </tr>`
+      )
+      .join('');
+    collectionTableEl.hidden = rows.length === 0;
+  }
+
+  async function refresh() {
+    entries = await getAll('collection');
+    render(searchEl.value);
+  }
+
+  refresh();
+  return { refresh, render };
+}
+
 // printings.json (32MB) só é pedido aqui, ao escolher um ficheiro - nunca no
 // arranque da app (invariante 11 no CLAUDE.md).
-function setupManaBoxImport(cards) {
+function setupManaBoxImport(cards, collectionView) {
   csvInputEl.disabled = false;
   csvInputEl.addEventListener('change', async () => {
     const file = csvInputEl.files[0];
@@ -94,6 +141,7 @@ function setupManaBoxImport(cards) {
       const csvText = await file.text();
       const result = resolveManaBoxCsv(csvText, { cards, printings });
       await saveCollection(result.entries);
+      await collectionView.refresh();
 
       const failRate = ((result.failures.length / result.totalRows) * 100).toFixed(2);
       importStatusEl.textContent =
@@ -184,7 +232,7 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-function setupPersonalData() {
+function setupPersonalData(collectionView) {
   exportBtn.disabled = false;
   importInputEl.disabled = false;
 
@@ -202,8 +250,9 @@ function setupPersonalData() {
     try {
       const bundle = JSON.parse(await file.text());
       await importPersonalData(bundle);
+      await collectionView.refresh();
       dataStatusEl.classList.remove('erro');
-      dataStatusEl.textContent = 'Dados importados com sucesso. Recarrega a página para veres as alterações.';
+      dataStatusEl.textContent = 'Dados importados com sucesso — ver a coleção guardada acima.';
     } catch (err) {
       dataStatusEl.textContent = `Falha ao importar: ${err.message}`;
       dataStatusEl.classList.add('erro');
@@ -223,20 +272,23 @@ async function main() {
     return;
   }
 
+  const collectionView = setupCollectionView(cards);
+
   searchEl.disabled = false;
   searchEl.addEventListener('input', () => {
     const query = searchEl.value.trim().toLowerCase();
     if (!query) {
       tableEl.hidden = true;
-      return;
+    } else {
+      renderResults(cards.filter((c) => c.name.toLowerCase().includes(query)));
+      tableEl.hidden = false;
     }
-    renderResults(cards.filter((c) => c.name.toLowerCase().includes(query)));
-    tableEl.hidden = false;
+    collectionView.render(searchEl.value);
   });
 
-  setupManaBoxImport(cards);
+  setupManaBoxImport(cards, collectionView);
   setupDecklistImport(cards);
-  setupPersonalData();
+  setupPersonalData(collectionView);
 }
 
 main();
