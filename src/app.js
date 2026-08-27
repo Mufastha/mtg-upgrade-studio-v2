@@ -23,6 +23,10 @@ const decklistFailuresBodyEl = document.getElementById('decklist-falhas-corpo');
 const commanderPickerEl = document.getElementById('decklist-commander-picker');
 const commanderSelectEl = document.getElementById('decklist-commander-select');
 const decklistSaveBtn = document.getElementById('decklist-guardar');
+const isPreconEl = document.getElementById('decklist-e-precon');
+const preconFieldsEl = document.getElementById('decklist-precon-campos');
+const preconNameEl = document.getElementById('decklist-precon-nome');
+const preconIdEl = document.getElementById('decklist-precon-id');
 
 const exportBtn = document.getElementById('dados-exportar');
 const importInputEl = document.getElementById('dados-importar');
@@ -109,6 +113,11 @@ function setupDecklistImport(cards) {
   decklistTextEl.disabled = false;
   decklistNameEl.disabled = false;
   decklistProcessBtn.disabled = false;
+  isPreconEl.disabled = false;
+
+  isPreconEl.addEventListener('change', () => {
+    preconFieldsEl.hidden = !isPreconEl.checked;
+  });
 
   let lastResult = null;
 
@@ -147,8 +156,19 @@ function setupDecklistImport(cards) {
     if (!lastResult) return;
     const commanderOracleId = lastResult.commanderOracleId ?? commanderSelectEl.value;
     const name = decklistNameEl.value.trim() || 'Deck sem nome';
-    const deckId = await saveDeck({ name, commanderOracleId, cards: lastResult.cards });
-    decklistStatusEl.textContent = `Deck "${name}" guardado (${deckId}).`;
+
+    // §4.3: as próprias cartas resolvidas desta decklist são a base do
+    // precon - nunca aparecerão como recomendação de compra para este deck.
+    const sourcePrecon = isPreconEl.checked
+      ? {
+          precon_id: preconIdEl.value.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: preconNameEl.value.trim() || name,
+          base_cards: lastResult.cards.map((c) => c.oracle_id),
+        }
+      : null;
+
+    const deckId = await saveDeck({ name, commanderOracleId, cards: lastResult.cards, sourcePrecon });
+    decklistStatusEl.textContent = `Deck "${name}" guardado (${deckId})${sourcePrecon ? ` — precon "${sourcePrecon.name}" com ${sourcePrecon.base_cards.length} cartas base` : ''}.`;
     decklistSaveBtn.hidden = true;
     commanderPickerEl.hidden = true;
   });

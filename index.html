@@ -30,6 +30,9 @@
     box-sizing: border-box;
     margin-bottom: 0.5rem;
   }
+  label.checkbox { display: block; margin-bottom: 0.5rem; }
+  label.checkbox input { width: auto; margin-right: 0.4rem; }
+  #decklist-precon-campos { margin-left: 1.5rem; }
   textarea { font-family: ui-monospace, monospace; font-size: 0.9rem; }
   button {
     padding: 0.5rem 1rem;
@@ -65,8 +68,16 @@
   </table>
 
   <h2>Importar deck (texto)</h2>
-  <textarea id="decklist-texto" rows="10" placeholder="1 Sol Ring&#10;CMDR Cloud, Ex-SOLDIER&#10;// comentário ignorado" disabled></textarea>
+  <textarea id="decklist-texto" rows="10" placeholder="// COMMANDER&#10;1 Cloud, Ex-SOLDIER&#10;&#10;1 Sol Ring&#10;(ou: CMDR Cloud, Ex-SOLDIER em vez do cabeçalho)" disabled></textarea>
   <input type="text" id="decklist-nome" placeholder="Nome do deck" disabled>
+  <label class="checkbox">
+    <input type="checkbox" id="decklist-e-precon" disabled>
+    Este deck vem de um precon (§4.3) — as cartas da lista nunca aparecerão como recomendação de compra
+  </label>
+  <div id="decklist-precon-campos" hidden>
+    <input type="text" id="decklist-precon-nome" placeholder="Nome do precon (ex. Limit Break)">
+    <input type="text" id="decklist-precon-id" placeholder="Identificador do precon (ex. fic-limit-break)">
+  </div>
   <button id="decklist-processar" disabled>Processar</button>
   <p id="decklist-status"></p>
   <table id="decklist-falhas" hidden>
@@ -74,7 +85,7 @@
     <tbody id="decklist-falhas-corpo"></tbody>
   </table>
   <div id="decklist-commander-picker" hidden>
-    <label for="decklist-commander-select">O commander não foi marcado com "CMDR" — escolhe-o:</label>
+    <label for="decklist-commander-select">O commander não foi marcado (nem "// COMMANDER" nem "CMDR") — escolhe-o:</label>
     <select id="decklist-commander-select"></select>
   </div>
   <button id="decklist-guardar" hidden>Guardar deck</button>
