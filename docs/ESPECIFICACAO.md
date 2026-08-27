@@ -371,7 +371,37 @@ Divisão de responsabilidades:
 
 ## 7. Perfil de deck
 
-Três camadas, por ordem de confiança:
+### 7.0 Validação de legalidade (Commander)
+
+Antes de qualquer métrica, o deck é validado contra as regras do próprio
+formato Commander — não as barreiras de bracket (§6, outra coisa: aquilo é
+poder relativo dentro de um deck já legal; isto é se o deck é sequer um deck
+de Commander válido). **Nunca bloqueia a importação — só avisa.** Um deck de
+96 cartas continua a importar-se e a ficar guardado; só aparece assinalado.
+
+Regras verificadas, por deck:
+
+1. **Exatamente 100 cartas, incluindo o commander.**
+2. **Singleton** — no máximo uma cópia de cada carta, exceto terrenos
+   básicos e cartas cujo `oracle_text` tenha a cláusula "A deck can have any
+   number of cards named ‹X›" (Relentless Rats, Dragon's Approach, etc.).
+3. **Identidade de cor** de cada carta contida na do commander. Usa
+   `color_identity` do catálogo (§3.1) diretamente — já é o resultado de
+   contar os símbolos de mana no custo e no texto de regras, calculado pela
+   Scryfall; não há razão para reimplementar essa leitura aqui.
+4. **Commander lendário** — criatura lendária, ou qualquer carta cujo
+   `oracle_text` diga "can be your commander" (cobre planeswalkers-commander
+   e afins).
+
+Cada problema aponta a carta concreta (quando aplicável — contagem total de
+cartas e commander em falta são problemas do deck, não de uma carta). A
+validação corre a partir do estado atual do deck (`decks` + `deck_cards`),
+nunca é guardada — não pode desatualizar-se.
+
+**Onde aparece:** um painel por deck na lista de "Decks guardados", sempre
+visível quando há problemas, com os avisos listados um a um.
+
+Três camadas de perfil, por ordem de confiança:
 
 **7.1 Determinística (automática).** Curva de mana, contagem de terrenos e fontes
 de mana, contagens por papel (ramp, draw, remoção, interação, wincons),
