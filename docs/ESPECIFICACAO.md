@@ -221,6 +221,14 @@ Toda a linha que não resolva vai para um relatório de importação visível. F
 silenciosas são inaceitáveis — uma carta que não resolve é uma carta que a app
 acha que não tens.
 
+Uma linha falha porque a carta não está em `printings.json`/`catalog.json.gz`
+— e não está lá precisamente por ter sido filtrada na construção do catálogo
+(§3.1). Essa razão não fica guardada localmente (só o que passa o filtro é
+guardado), por isso o relatório pede a razão real à Scryfall por
+`scryfall_id`, uma vez por linha falhada, depois de mostrar a tabela (nunca
+atrasa a confirmação do import). Sem rede, a coluna fica com um aviso em vez
+de rebentar — a resolução em si continua inteiramente local.
+
 ### 4.2 Decks
 
 Formato de entrada: texto simples, uma carta por linha, `1 Sol Ring`. Linhas
@@ -513,9 +521,16 @@ coleção resolve com menos de 1% de falhas não explicadas, e o deck Limit Brea
 com 100 cartas identificadas.
 
 Coleção real testada (26 de agosto de 2026, 4371 linhas): **0,64% de
-falhas** — as 28 linhas não resolvidas são todas do set `TTMC` (Teenage
-Mutant Ninja Turtles Eternal Tokens), tokens com `legalities.commander:
-not_legal`. Falha explicada, não um problema do importador.
+falhas** — as 28 linhas não resolvidas são todas do set `TTMC`, cartas
+físicas reais do modo de jogo "Team-Up" das Teenage Mutant Ninja Turtles
+(bosses e eventos do baralho de inimigos), não cartas de baralho normais.
+A Scryfall classifica-as como `layout: token` (a categoria mais próxima que
+o esquema deles tem para isto) e `set_name: "...Eternal Tokens"`, o que é
+enganador — não são brindes, são peças físicas reais que o Diogo possui.
+`legalities.commander: not_legal` de qualquer forma. Falha explicada, não um
+problema do importador; a razão real (por carta) é pedida à Scryfall no
+momento do import (§4.1) e mostrada na tabela de falhas, em vez de um texto
+genérico.
 
 Deck Limit Break real testado (27 de agosto de 2026, decklist Archidekt de
 100 cartas): **100/100 resolvidas, 0 falhas**, commander detetado via `//

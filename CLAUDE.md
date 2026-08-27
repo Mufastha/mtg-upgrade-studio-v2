@@ -51,6 +51,10 @@ e atualizar a especificação primeiro — não contorná-la em código.
     (§3.1 da especificação) e só serve para o importador da ManaBox resolver
     `scryfall_id → oracle_id` (§4.1). O arranque da app só descarrega
     `catalog.json.gz` + `manifest.json`.
+12. **A coleção é uma cópia de leitura da ManaBox, nunca editável na app.** Um
+    import substitui-a inteira (§4.1); não há edição nem remendo linha a
+    linha, para não criar uma segunda fonte de verdade a divergir da real.
+    Corrigir a coleção é corrigir o export e reimportar.
 
 ## Convenções
 
