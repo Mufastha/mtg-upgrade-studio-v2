@@ -1,6 +1,6 @@
 import { getAll, clearStore, putAll } from '../db/idb.js';
 
-const FORMAT = 'mtg-upgrade-studio-export';
+export const FORMAT = 'mtg-upgrade-studio-export';
 
 // P2: dados pessoais são coleção, decks e configurações - nunca o catálogo
 // (referência, re-descarregável). deck_configs entra aqui quando existir

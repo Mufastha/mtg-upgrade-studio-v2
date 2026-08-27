@@ -1,11 +1,11 @@
 import { loadCatalog } from './catalog/loader.js';
 import { loadPrintings } from './catalog/printings.js';
-import { getAll } from './db/idb.js';
+import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows } from './ui/deck-view.js';
-import { resolveManaBoxCsv, saveCollection } from './importers/manabox.js';
+import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
 import { resolveDecklist, saveDeck, renameDeck, deleteDeck } from './importers/decklist.js';
-import { exportPersonalData, importPersonalData } from './data/personal.js';
+import { exportPersonalData, importPersonalData, FORMAT as PERSONAL_DATA_FORMAT } from './data/personal.js';
 
 const statusEl = document.getElementById('status');
 const searchEl = document.getElementById('pesquisa');
@@ -18,6 +18,7 @@ const collectionPositionEl = document.getElementById('colecao-posicao');
 const collectionTableEl = document.getElementById('colecao-tabela');
 const collectionBodyEl = document.getElementById('colecao-corpo');
 const collectionShowMoreBtn = document.getElementById('colecao-mostrar-mais');
+const collectionDeleteBtn = document.getElementById('colecao-apagar');
 
 const decksStatusEl = document.getElementById('decks-status');
 const decksTableEl = document.getElementById('decks-tabela');
@@ -84,6 +85,7 @@ function renderImportFailures(failures) {
         <td>${escapeHtml(f.name)}</td>
         <td>${escapeHtml(f.set_code)}</td>
         <td>${escapeHtml(f.collector_number)}</td>
+        <td>${f.reason ? escapeHtml(f.reason) : '<span class="desconhecido">a verificar…</span>'}</td>
       </tr>`
     )
     .join('');
@@ -141,6 +143,18 @@ function setupCollectionView(cards) {
   collectionShowMoreBtn.addEventListener('click', () => {
     visibleLimit += COLLECTION_PAGE_SIZE;
     render();
+  });
+
+  collectionDeleteBtn.addEventListener('click', async () => {
+    if (entries.length === 0) return;
+    const totalCopies = entries.reduce((sum, e) => sum + e.quantity, 0);
+    const confirmado = window.confirm(
+      `Apagar toda a coleção guardada (${entries.length} entradas, ${totalCopies} cópias)? ` +
+        'Esta ação não pode ser desfeita — a verdade da coleção vive na ManaBox, reimporta o CSV para a recuperar.'
+    );
+    if (!confirmado) return;
+    await clearStore('collection');
+    await refresh();
   });
 
   async function refresh() {
@@ -273,6 +287,15 @@ function setupManaBoxImport(cards, collectionView) {
         `Coleção importada: ${result.entries.length} entradas guardadas ` +
         `(${result.resolvedRows}/${result.totalRows} linhas resolvidas, ${failRate}% falhas).`;
       renderImportFailures(result.failures);
+
+      // A razão de cada falha não está nos dados locais (§3.1: só guardamos
+      // o que passa o filtro do catálogo) - só a Scryfall sabe porque é que
+      // uma carta ficou de fora. Pedida à parte, depois de mostrar a tabela,
+      // para não atrasar a confirmação do import em si.
+      if (result.failures.length > 0) {
+        const withReasons = await enrichFailureReasons(result.failures);
+        renderImportFailures(withReasons);
+      }
     } catch (err) {
       importStatusEl.textContent = `Falha ao importar: ${err.message}`;
       importStatusEl.classList.add('erro');
@@ -383,6 +406,22 @@ function setupPersonalData(collectionView, deckView) {
     if (!file) return;
     try {
       const bundle = JSON.parse(await file.text());
+      if (bundle?.format !== PERSONAL_DATA_FORMAT) {
+        throw new Error('Ficheiro não reconhecido: não é um export do MTG Upgrade Studio.');
+      }
+
+      const [collectionAtual, decksAtual] = await Promise.all([getAll('collection'), getAll('decks')]);
+      const confirmado = window.confirm(
+        'Importar este ficheiro substitui os dados guardados. Não pode ser desfeito.\n\n' +
+          `Coleção: ${collectionAtual.length} entradas atuais → ${bundle.stores?.collection?.length ?? 0} no ficheiro\n` +
+          `Decks: ${decksAtual.length} atuais → ${bundle.stores?.decks?.length ?? 0} no ficheiro\n\n` +
+          'Continuar?'
+      );
+      if (!confirmado) {
+        importInputEl.value = '';
+        return;
+      }
+
       await importPersonalData(bundle);
       await Promise.all([collectionView.refresh(), deckView.refresh()]);
       dataStatusEl.classList.remove('erro');
