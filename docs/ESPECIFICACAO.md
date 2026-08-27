@@ -227,10 +227,23 @@ Formato de entrada: texto simples, uma carta por linha, `1 Sol Ring`. Linhas
 começadas por `//` ignoradas. O commander é identificado por marcação explícita
 ou escolhido pelo utilizador na importação.
 
-Marcação explícita: `CMDR` no lugar da quantidade, ex. `CMDR Cloud,
-Ex-SOLDIER`. Sem essa marca em nenhuma linha, o import mostra as cartas
-resolvidas e o utilizador escolhe o commander antes de guardar — nunca um
-palpite automático (ex. a primeira lenda da lista).
+Duas formas de marcação explícita, porque exports reais (Archidekt, Moxfield)
+não anotam cada linha:
+
+1. Cabeçalho de secção `// COMMANDER` numa linha isolada — a próxima linha de
+   carta é o commander.
+2. `CMDR` no lugar da quantidade, ex. `CMDR Cloud, Ex-SOLDIER` — para quem
+   escreve a lista à mão sem cabeçalhos de secção.
+
+Sem nenhuma das duas em toda a lista, o import mostra as cartas resolvidas e o
+utilizador escolhe o commander antes de guardar — nunca um palpite automático
+(ex. a primeira lenda da lista).
+
+Exports reais também trazem `(SET) número *F*` a seguir ao nome (edição,
+número de colecionador, acabamento) — descartado antes da resolução, que é
+só por nome. Testado contra a decklist real do Limit Break (100 linhas,
+formato Archidekt): **100/100 cartas resolvidas, 0 falhas**, commander detetado
+via `// COMMANDER`.
 
 Resolução por nome exato contra `catalog.json.gz`, sem distinguir
 maiúsculas/minúsculas (ao contrário do importador da ManaBox, que já recebe
@@ -474,6 +487,10 @@ Coleção real testada (26 de agosto de 2026, 4371 linhas): **0,64% de
 falhas** — as 28 linhas não resolvidas são todas do set `TTMC` (Teenage
 Mutant Ninja Turtles Eternal Tokens), tokens com `legalities.commander:
 not_legal`. Falha explicada, não um problema do importador.
+
+Deck Limit Break real testado (27 de agosto de 2026, decklist Archidekt de
+100 cartas): **100/100 resolvidas, 0 falhas**, commander detetado via `//
+COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
 
 ### Fase 2 — Análise de deck
 - Métricas determinísticas (§7.1)

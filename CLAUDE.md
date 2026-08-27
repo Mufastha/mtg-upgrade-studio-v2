@@ -61,8 +61,9 @@ e atualizar a especificação primeiro — não contorná-la em código.
 
 ## Estado atual
 
-Fase 1 (fundação de dados) por começar. Ver §11 da especificação para os
-critérios de aceitação.
+Fase 1 (fundação de dados) aceite — os três critérios do §11 da
+especificação estão cumpridos e testados contra dados reais do Diogo.
+Fase 2 (análise de deck) por começar.
 
 Dois decks de validação, com papéis diferentes (ver §11 da especificação):
 - **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
