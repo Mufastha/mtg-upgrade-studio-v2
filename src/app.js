@@ -2,6 +2,7 @@ import { loadCatalog } from './catalog/loader.js';
 import { loadPrintings } from './catalog/printings.js';
 import { getAll } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
+import { buildDeckSummaries, buildDeckCardRows } from './ui/deck-view.js';
 import { resolveManaBoxCsv, saveCollection } from './importers/manabox.js';
 import { resolveDecklist, saveDeck } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData } from './data/personal.js';
@@ -11,9 +12,15 @@ const searchEl = document.getElementById('pesquisa');
 const tableEl = document.getElementById('resultados');
 const tbodyEl = document.getElementById('resultados-corpo');
 
+const collectionSearchEl = document.getElementById('colecao-pesquisa');
 const collectionStatusEl = document.getElementById('colecao-status');
 const collectionTableEl = document.getElementById('colecao-tabela');
 const collectionBodyEl = document.getElementById('colecao-corpo');
+const collectionShowMoreBtn = document.getElementById('colecao-mostrar-mais');
+
+const decksStatusEl = document.getElementById('decks-status');
+const decksTableEl = document.getElementById('decks-tabela');
+const decksBodyEl = document.getElementById('decks-corpo');
 
 const csvInputEl = document.getElementById('manabox-csv');
 const importStatusEl = document.getElementById('import-status');
@@ -39,6 +46,7 @@ const importInputEl = document.getElementById('dados-importar');
 const dataStatusEl = document.getElementById('dados-status');
 
 const MAX_RESULTS = 50;
+const COLLECTION_PAGE_SIZE = 50;
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
 function escapeHtml(str) {
@@ -83,22 +91,30 @@ function renderImportFailures(failures) {
 }
 
 // Lista simples da coleção guardada - só assim se confirma visualmente que
-// um import (ManaBox ou JSON) gravou mesmo os dados. Sem imagens, filtrável
-// pela mesma pesquisa do catálogo (mesmo #pesquisa, dois resultados).
+// um import (ManaBox ou JSON) gravou mesmo os dados. Sem imagens, com
+// pesquisa própria (independente da do catálogo) e paginada - a coleção
+// real do Diogo tem ~3900 entradas, mostrar tudo de uma vez não é "mínimo".
 function setupCollectionView(cards) {
   const cardsByOracleId = new Map(cards.map((c) => [c.oracle_id, c]));
   let entries = [];
+  let visibleLimit = COLLECTION_PAGE_SIZE;
 
-  function render(query) {
-    const { rows, totalEntries, totalCopies } = buildCollectionRows(entries, cardsByOracleId, query);
+  function render() {
+    const { rows, matchedCount, totalEntries, totalCopies } = buildCollectionRows(
+      entries,
+      cardsByOracleId,
+      collectionSearchEl.value,
+      visibleLimit
+    );
 
     if (totalEntries === 0) {
       collectionStatusEl.textContent = 'Coleção vazia — importa um CSV da ManaBox ou um JSON exportado antes.';
     } else {
-      const q = query.trim();
+      const q = collectionSearchEl.value.trim();
       collectionStatusEl.textContent =
         `${totalEntries} entradas, ${totalCopies} cópias no total` +
-        (q ? ` — ${rows.length} a mostrar para "${q}".` : '.');
+        (q ? ` — ${matchedCount} a corresponder a "${q}"` : '') +
+        (rows.length < matchedCount ? `, a mostrar ${rows.length}.` : '.');
     }
 
     collectionBodyEl.innerHTML = rows
@@ -112,15 +128,81 @@ function setupCollectionView(cards) {
       )
       .join('');
     collectionTableEl.hidden = rows.length === 0;
+    collectionShowMoreBtn.hidden = rows.length >= matchedCount;
   }
+
+  collectionSearchEl.addEventListener('input', () => {
+    visibleLimit = COLLECTION_PAGE_SIZE;
+    render();
+  });
+  collectionShowMoreBtn.addEventListener('click', () => {
+    visibleLimit += COLLECTION_PAGE_SIZE;
+    render();
+  });
 
   async function refresh() {
     entries = await getAll('collection');
-    render(searchEl.value);
+    visibleLimit = COLLECTION_PAGE_SIZE;
+    render();
   }
 
   refresh();
-  return { refresh, render };
+  return { refresh };
+}
+
+// Lista mínima dos decks guardados - nome, commander, contagem de cartas,
+// marca de precon. "Ver cartas" expande a lista de cartas do deck; sem
+// imagens nem estatísticas (isso é Fase 2).
+function setupDeckView(cards) {
+  const cardsByOracleId = new Map(cards.map((c) => [c.oracle_id, c]));
+  let decks = [];
+  let deckCards = [];
+  let expandedDeckId = null;
+
+  function render() {
+    const summaries = buildDeckSummaries(decks, deckCards, cardsByOracleId);
+
+    if (summaries.length === 0) {
+      decksStatusEl.textContent = 'Nenhum deck guardado — importa uma decklist em texto abaixo.';
+      decksTableEl.hidden = true;
+      return;
+    }
+    decksStatusEl.textContent = `${summaries.length} deck(s) guardado(s).`;
+
+    decksBodyEl.innerHTML = summaries
+      .map((s) => {
+        const summaryRow = `<tr>
+          <td>${escapeHtml(s.name)}</td>
+          <td>${escapeHtml(s.commanderName)}</td>
+          <td>${s.cardCount}</td>
+          <td>${s.isPrecon ? escapeHtml(s.preconName) : '—'}</td>
+          <td><button type="button" data-deck-id="${s.deck_id}">${expandedDeckId === s.deck_id ? 'Fechar' : 'Ver cartas'}</button></td>
+        </tr>`;
+        if (expandedDeckId !== s.deck_id) return summaryRow;
+
+        const cardList = buildDeckCardRows(s.deck_id, deckCards, cardsByOracleId)
+          .map((c) => `${c.quantity}x ${escapeHtml(c.name)}`)
+          .join('<br>');
+        return `${summaryRow}<tr><td colspan="5">${cardList}</td></tr>`;
+      })
+      .join('');
+    decksTableEl.hidden = false;
+  }
+
+  decksBodyEl.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-deck-id]');
+    if (!btn) return;
+    expandedDeckId = expandedDeckId === btn.dataset.deckId ? null : btn.dataset.deckId;
+    render();
+  });
+
+  async function refresh() {
+    [decks, deckCards] = await Promise.all([getAll('decks'), getAll('deck_cards')]);
+    render();
+  }
+
+  refresh();
+  return { refresh };
 }
 
 // printings.json (32MB) só é pedido aqui, ao escolher um ficheiro - nunca no
@@ -157,7 +239,7 @@ function setupManaBoxImport(cards, collectionView) {
   });
 }
 
-function setupDecklistImport(cards) {
+function setupDecklistImport(cards, deckView) {
   decklistTextEl.disabled = false;
   decklistNameEl.disabled = false;
   decklistProcessBtn.disabled = false;
@@ -216,7 +298,8 @@ function setupDecklistImport(cards) {
       : null;
 
     const deckId = await saveDeck({ name, commanderOracleId, cards: lastResult.cards, sourcePrecon });
-    decklistStatusEl.textContent = `Deck "${name}" guardado (${deckId})${sourcePrecon ? ` — precon "${sourcePrecon.name}" com ${sourcePrecon.base_cards.length} cartas base` : ''}.`;
+    await deckView.refresh();
+    decklistStatusEl.textContent = `Deck "${name}" guardado (${deckId})${sourcePrecon ? ` — precon "${sourcePrecon.name}" com ${sourcePrecon.base_cards.length} cartas base` : ''} — ver decks guardados acima.`;
     decklistSaveBtn.hidden = true;
     commanderPickerEl.hidden = true;
   });
@@ -232,7 +315,7 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-function setupPersonalData(collectionView) {
+function setupPersonalData(collectionView, deckView) {
   exportBtn.disabled = false;
   importInputEl.disabled = false;
 
@@ -250,9 +333,9 @@ function setupPersonalData(collectionView) {
     try {
       const bundle = JSON.parse(await file.text());
       await importPersonalData(bundle);
-      await collectionView.refresh();
+      await Promise.all([collectionView.refresh(), deckView.refresh()]);
       dataStatusEl.classList.remove('erro');
-      dataStatusEl.textContent = 'Dados importados com sucesso — ver a coleção guardada acima.';
+      dataStatusEl.textContent = 'Dados importados com sucesso — ver a coleção e os decks guardados acima.';
     } catch (err) {
       dataStatusEl.textContent = `Falha ao importar: ${err.message}`;
       dataStatusEl.classList.add('erro');
@@ -273,22 +356,22 @@ async function main() {
   }
 
   const collectionView = setupCollectionView(cards);
+  const deckView = setupDeckView(cards);
 
   searchEl.disabled = false;
   searchEl.addEventListener('input', () => {
     const query = searchEl.value.trim().toLowerCase();
     if (!query) {
       tableEl.hidden = true;
-    } else {
-      renderResults(cards.filter((c) => c.name.toLowerCase().includes(query)));
-      tableEl.hidden = false;
+      return;
     }
-    collectionView.render(searchEl.value);
+    renderResults(cards.filter((c) => c.name.toLowerCase().includes(query)));
+    tableEl.hidden = false;
   });
 
   setupManaBoxImport(cards, collectionView);
-  setupDecklistImport(cards);
-  setupPersonalData(collectionView);
+  setupDecklistImport(cards, deckView);
+  setupPersonalData(collectionView, deckView);
 }
 
 main();
