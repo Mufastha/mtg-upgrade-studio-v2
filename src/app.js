@@ -3,7 +3,7 @@ import { loadPrintings } from './catalog/printings.js';
 import { loadExcluded } from './catalog/excluded.js';
 import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
-import { buildDeckSummaries, buildDeckCardRows } from './ui/deck-view.js';
+import { buildDeckSummaries, buildDeckCardRows, buildDeckMetrics } from './ui/deck-view.js';
 import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
 import { resolveDecklist, saveDeck, renameDeck, deleteDeck } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData, FORMAT as PERSONAL_DATA_FORMAT } from './data/personal.js';
@@ -169,13 +169,15 @@ function setupCollectionView(cards) {
 }
 
 // Lista mínima dos decks guardados - nome, commander, contagem de cartas,
-// marca de precon. "Ver cartas" expande a lista de cartas do deck; sem
-// imagens nem estatísticas (isso é Fase 2).
+// marca de precon, legalidade (§7.0). "Ver cartas" expande a lista de
+// cartas; "Ver métricas" expande as métricas determinísticas (§7.1). Sem
+// imagens nem gráficos.
 function setupDeckView(cards) {
   const cardsByOracleId = new Map(cards.map((c) => [c.oracle_id, c]));
   let decks = [];
   let deckCards = [];
   let expandedDeckId = null;
+  let metricsDeckId = null;
 
   function render() {
     const summaries = buildDeckSummaries(decks, deckCards, cardsByOracleId);
@@ -198,6 +200,7 @@ function setupDeckView(cards) {
           <td class="${s.legality.legal ? 'legal' : 'ilegal'}">${legalityText}</td>
           <td>
             <button type="button" data-action="ver" data-deck-id="${s.deck_id}">${expandedDeckId === s.deck_id ? 'Fechar' : 'Ver cartas'}</button>
+            <button type="button" data-action="metricas" data-deck-id="${s.deck_id}">${metricsDeckId === s.deck_id ? 'Fechar métricas' : 'Ver métricas'}</button>
             <button type="button" data-action="renomear" data-deck-id="${s.deck_id}">Renomear</button>
             <button type="button" data-action="apagar" data-deck-id="${s.deck_id}">Apagar</button>
           </td>
@@ -211,15 +214,44 @@ function setupDeckView(cards) {
               .map((p) => `⚠ ${p.card ? `<strong>${escapeHtml(p.card)}</strong>: ` : ''}${escapeHtml(p.message)}`)
               .join('<br>')}</td></tr>`;
 
-        if (expandedDeckId !== s.deck_id) return summaryRow + problemsRow;
+        const metricsRow = metricsDeckId === s.deck_id ? renderMetricsRow(s.deck_id) : '';
 
-        const cardList = buildDeckCardRows(s.deck_id, deckCards, cardsByOracleId)
-          .map((c) => `${c.quantity}x ${escapeHtml(c.name)}`)
-          .join('<br>');
-        return `${summaryRow}${problemsRow}<tr><td colspan="6">${cardList}</td></tr>`;
+        const cardsRow =
+          expandedDeckId === s.deck_id
+            ? `<tr><td colspan="6">${buildDeckCardRows(s.deck_id, deckCards, cardsByOracleId)
+                .map((c) => `${c.quantity}x ${escapeHtml(c.name)}`)
+                .join('<br>')}</td></tr>`
+            : '';
+
+        return summaryRow + problemsRow + metricsRow + cardsRow;
       })
       .join('');
     decksTableEl.hidden = false;
+  }
+
+  // §7.1 - curva de mana, terrenos/fontes de mana, contagens por papel,
+  // densidade de interação e papéis em falta. Sem gráficos: texto simples,
+  // como o resto da app.
+  function renderMetricsRow(deckId) {
+    const m = buildDeckMetrics(deckId, deckCards, cardsByOracleId);
+    const curve = ['0', '1', '2', '3', '4', '5', '6', '7+']
+      .map((k) => `${k}:${m.manaCurve[k]}`)
+      .join('  ');
+    const roles = Object.entries(m.roleCounts)
+      .map(([role, n]) => `${role} ${n}`)
+      .join(' · ');
+    const missing =
+      m.missingRoles.length === 0
+        ? 'Nenhum — todos os papéis atingem o alvo de referência.'
+        : m.missingRoles.map((r) => `${r.role}: tem ${r.have}, alvo ${r.target} (faltam ${r.short})`).join('<br>');
+
+    return `<tr class="deck-metricas"><td colspan="6">` +
+      `Terrenos: ${m.landCount} · Fontes de mana: ${m.manaSourceCount} · ` +
+      `Densidade de interação: ${(m.interactionDensity * 100).toFixed(0)}%<br>` +
+      `Curva de mana (${m.totalNonLandCards} cartas não-terreno): ${escapeHtml(curve)}<br>` +
+      `Papéis: ${escapeHtml(roles)}<br>` +
+      `<strong>Papéis em falta (alvos de referência, não regra oficial):</strong><br>${missing}` +
+      `</td></tr>`;
   }
 
   decksBodyEl.addEventListener('click', async (ev) => {
@@ -229,6 +261,12 @@ function setupDeckView(cards) {
 
     if (action === 'ver') {
       expandedDeckId = expandedDeckId === deckId ? null : deckId;
+      render();
+      return;
+    }
+
+    if (action === 'metricas') {
+      metricsDeckId = metricsDeckId === deckId ? null : deckId;
       render();
       return;
     }
@@ -250,6 +288,7 @@ function setupDeckView(cards) {
       if (!confirmado) return;
       await deleteDeck(deckId);
       if (expandedDeckId === deckId) expandedDeckId = null;
+      if (metricsDeckId === deckId) metricsDeckId = null;
       await refresh();
     }
   });

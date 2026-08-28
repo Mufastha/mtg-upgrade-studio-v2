@@ -1,4 +1,5 @@
 import { validateCommanderDeck } from '../rules/commander-legality.js';
+import { computeDeckMetrics } from '../rules/deck-metrics.js';
 
 // Lógica pura por trás da lista de decks em index.html - sem DOM, para dar
 // para testar diretamente. app.js só faz a pintura a partir disto.
@@ -22,6 +23,14 @@ export function buildDeckSummaries(decks, deckCards, cardsByOracleId) {
       legality: validateCommanderDeck(d, ownCards, cardsByOracleId),
     };
   });
+}
+
+// §7.1 - computado sob demanda (só quando "Ver métricas" é aberto), não a
+// cada render da lista como a legalidade (§7.0): é mais trabalho por deck e
+// não precisa de estar sempre visível.
+export function buildDeckMetrics(deckId, deckCards, cardsByOracleId) {
+  const ownCards = deckCards.filter((dc) => dc.deck_id === deckId);
+  return computeDeckMetrics(ownCards, cardsByOracleId);
 }
 
 export function buildDeckCardRows(deckId, deckCards, cardsByOracleId) {
