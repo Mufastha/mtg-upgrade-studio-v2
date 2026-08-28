@@ -538,7 +538,8 @@ com papéis diferentes:
 
 ### Fase 1 — Fundação de dados
 - GitHub Action constrói e publica `catalog.json.gz` + `printings.json` +
-  `manifest.json` como artefacto do Pages (nunca commitados, §3.2)
+  `excluded.json` + `manifest.json` como artefacto do Pages (nunca
+  commitados, §3.2)
 - App carrega e cacheia o catálogo; funciona offline depois disso
 - Importador ManaBox com relatório de falhas
 - Importador de decklist em texto
@@ -565,6 +566,10 @@ Deck Limit Break real testado (27 de agosto de 2026, decklist Archidekt de
 COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
 
 ### Fase 2 — Análise de deck
+- ~~Validação de legalidade do deck (§7.0)~~ — **já feito**, 28 de agosto de
+  2026, antes do resto da fase começar (motivado por um deck de 96 cartas
+  aceite sem aviso). `src/rules/commander-legality.js` + painel por deck na
+  lista de "Decks guardados".
 - Métricas determinísticas (§7.1)
 - Formulário de perfil declarado (§7.2)
 - Configurações de deck com bracket alvo (§5)

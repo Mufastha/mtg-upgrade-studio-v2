@@ -67,7 +67,16 @@ e atualizar a especificação primeiro — não contorná-la em código.
 
 Fase 1 (fundação de dados) aceite — os três critérios do §11 da
 especificação estão cumpridos e testados contra dados reais do Diogo.
-Fase 2 (análise de deck) por começar.
+Fase 2 (análise de deck) por começar, exceto §7.0 (validação de legalidade
+do deck), que já está feito — ver §11 da especificação.
+
+Depois de aceite, a Fase 1 recebeu uma ronda de correções vindas de uso
+real: visualizador de coleção e de decks guardados (pesquisa, paginação,
+renomear, apagar), confirmação antes de operações destrutivas (apagar
+coleção, importar JSON), e a correção mais importante — o relatório de
+falhas do importador da ManaBox deixou de depender da rede em tempo real
+para explicar um erro (violava a invariante 10); a razão vem agora de
+`excluded.json`, gerado na build.
 
 Dois decks de validação, com papéis diferentes (ver §11 da especificação):
 - **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
