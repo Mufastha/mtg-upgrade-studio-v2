@@ -78,16 +78,18 @@ sentido.
 ### 3.1 Construção do catálogo
 
 Uma GitHub Action semanal (mais execução manual após lançamento de edições)
-produz `catalog.json.gz`, `printings.json` e `manifest.json` e publica-os como
-artefacto de deployment do GitHub Pages — não ficam no histórico do
-repositório (ver §3.2). O builder escreve para `catalog/` na raiz do
-repositório (gitignored); o workflow copia essa pasta tal e qual para dentro
-de `dist/`, que é o que `actions/upload-pages-artifact` publica. Os três
-ficheiros ficam então em `/catalog/` a partir da raiz do site publicado:
+produz `catalog.json.gz`, `printings.json`, `excluded.json` e `manifest.json`
+e publica-os como artefacto de deployment do GitHub Pages — não ficam no
+histórico do repositório (ver §3.2). O builder escreve para `catalog/` na
+raiz do repositório (gitignored); o workflow copia essa pasta tal e qual
+para dentro de `dist/`, que é o que `actions/upload-pages-artifact` publica.
+Os quatro ficheiros ficam então em `/catalog/` a partir da raiz do site
+publicado:
 
 ```
 https://<utilizador>.github.io/<repo>/catalog/catalog.json.gz
 https://<utilizador>.github.io/<repo>/catalog/printings.json
+https://<utilizador>.github.io/<repo>/catalog/excluded.json
 https://<utilizador>.github.io/<repo>/catalog/manifest.json
 ```
 
@@ -149,29 +151,55 @@ scryfall_id, oracle_id, set, collector_number, cardmarket_uri
 Construído a partir do mesmo bulk `default_cards` que alimenta `price_eur_min`,
 sujeito aos mesmos filtros de legalidade e tipo de objeto do catálogo.
 
-Medido em produção (26 de agosto de 2026, 106 687 impressões): **32 MB em
+Medido em produção (28 de agosto de 2026, 106 982 impressões): **32 MB em
 disco, não comprimido** (ao contrário de `catalog.json.gz`). O GitHub Pages
 comprime-o em trânsito de forma transparente (~6,4 MB pela rede), mas o
 ficheiro em si não leva gzip — é só usado sob pedido, nunca no arranque da app
 (ver a invariante 11 no CLAUDE.md e §3.2).
 
+#### excluded.json
+
+Uma impressão de `default_cards` que não passa os filtros do catálogo (§3.1)
+não fica em lado nenhum — nem em `catalog.json.gz`, nem em `printings.json`.
+Sem este ficheiro, a app não tem forma de explicar *porquê* uma linha do
+importador da ManaBox (§4.1) falhou, sem perguntar à Scryfall em tempo real —
+o que feriria a invariante 10 (local-first) só para produzir uma mensagem de
+erro. `excluded.json` guarda a razão no momento da build, uma vez, para todas
+as impressões filtradas.
+
+Campos por entrada, chave `scryfall_id`:
+
+```
+scryfall_id, oracle_id, reason, detail, type_line
+```
+
+`reason` é `"excluded_layout"` ou `"not_legal_commander"`; `detail` é o
+`layout` (para o primeiro caso) ou o valor de `legalities.commander` (para o
+segundo, ex. `"not_legal"`, `"banned"`). Construído na mesma passagem por
+`default_cards` que gera `printings.json` — a impressão que não entra num
+Map entra no outro, nunca as duas.
+
+Medido em produção (28 de agosto de 2026): **10 621 impressões excluídas,
+~2 MB em disco.** Tal como `printings.json`, sob demanda, nunca no arranque.
+
 ### 3.2 Versionamento e atualização
 
-`catalog.json.gz`, `printings.json` e `manifest.json` **não são commitados.**
-Cada build semanal deixaria um blob de vários MB no histórico do
-repositório, permanentemente, sem nenhum benefício — só o código e os dados
-de referência escritos à mão (como `bracket-rules.json`) vivem no git. A
-Action gera os três ficheiros no runner e publica-os como artefacto de
-deployment do GitHub Pages (`actions/upload-pages-artifact` +
+`catalog.json.gz`, `printings.json`, `excluded.json` e `manifest.json`
+**não são commitados.** Cada build semanal deixaria um blob de vários MB no
+histórico do repositório, permanentemente, sem nenhum benefício — só o
+código e os dados de referência escritos à mão (como `bracket-rules.json`)
+vivem no git. A Action gera os quatro ficheiros no runner e publica-os como
+artefacto de deployment do GitHub Pages (`actions/upload-pages-artifact` +
 `actions/deploy-pages`), lado a lado com os ficheiros estáticos da app.
 
 `manifest.json` tem `{version, built_at, card_count, sha}`. A app compara com
 o que tem em cache (IndexedDB) e descarrega `catalog.json.gz` de novo se for
 diferente. O utilizador não faz nada.
 
-**`printings.json` carrega-se à parte, sob demanda — nunca no arranque.** É
-só necessário no importador da ManaBox (§4.1); 32 MB não têm lugar no
-carregamento inicial da app. Ver a invariante 11 no CLAUDE.md.
+**`printings.json` e `excluded.json` carregam-se à parte, sob demanda —
+nunca no arranque.** Só são necessários no importador da ManaBox (§4.1); 32
+MB (+ 2 MB) não têm lugar no carregamento inicial da app. Ver a invariante 11
+no CLAUDE.md.
 
 Nuance de transporte a ter em conta no loader: `catalog.json.gz` é gzip como
 *formato de ficheiro* (`Content-Type: application/gzip`, sem
@@ -189,6 +217,7 @@ IndexedDB, com as seguintes stores:
 |---|---|---|
 | `catalog` | `oracle_id` | Descartável, re-descarregável |
 | `printings` | `scryfall_id` | Descartável, re-descarregável — de `printings.json` (§3.1) |
+| `excluded` | `scryfall_id` | Descartável, re-descarregável — de `excluded.json` (§3.1), sob demanda como `printings` |
 | `collection` | `(scryfall_id, foil)` | Vem da ManaBox — chave composta: a Scryfall trata foil e não-foil da mesma impressão como o mesmo `scryfall_id` (`finishes[]` é que distingue), e um export real tem as duas quantidades lado a lado |
 | `decks` | `deck_id` | Inclui `source_precon` opcional (§4.3) |
 | `deck_cards` | `(deck_id, oracle_id)` | |
@@ -223,11 +252,10 @@ acha que não tens.
 
 Uma linha falha porque a carta não está em `printings.json`/`catalog.json.gz`
 — e não está lá precisamente por ter sido filtrada na construção do catálogo
-(§3.1). Essa razão não fica guardada localmente (só o que passa o filtro é
-guardado), por isso o relatório pede a razão real à Scryfall por
-`scryfall_id`, uma vez por linha falhada, depois de mostrar a tabela (nunca
-atrasa a confirmação do import). Sem rede, a coluna fica com um aviso em vez
-de rebentar — a resolução em si continua inteiramente local.
+(§3.1). A razão dessa exclusão vive em `excluded.json` (§3.1), gerado na
+mesma build, por isso o relatório resolve-a localmente, por `scryfall_id`,
+sem depender da rede em tempo real — pedir isto à Scryfall por carta
+feriria a invariante 10 (local-first) só para explicar um erro.
 
 ### 4.2 Decks
 
@@ -528,9 +556,9 @@ A Scryfall classifica-as como `layout: token` (a categoria mais próxima que
 o esquema deles tem para isto) e `set_name: "...Eternal Tokens"`, o que é
 enganador — não são brindes, são peças físicas reais que o Diogo possui.
 `legalities.commander: not_legal` de qualquer forma. Falha explicada, não um
-problema do importador; a razão real (por carta) é pedida à Scryfall no
-momento do import (§4.1) e mostrada na tabela de falhas, em vez de um texto
-genérico.
+problema do importador; a razão real (por carta) vem de `excluded.json`,
+gerado na build (§3.1/§4.1), e é mostrada na tabela de falhas, em vez de um
+texto genérico — sem depender da rede no momento do import.
 
 Deck Limit Break real testado (27 de agosto de 2026, decklist Archidekt de
 100 cartas): **100/100 resolvidas, 0 falhas**, commander detetado via `//
@@ -584,3 +612,11 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 
 **Aberto:** pesos iniciais do scoring (§8 Fase C) — a calibrar empiricamente na
 Fase 4 contra decks já conhecidos.
+
+**Trabalho futuro:** catálogo de precons no builder, a partir do
+`taw/magic-preconstructed-decks-data` ou do MTGJSON. Hoje o campo "É um deck
+de precon" (§4.3) é texto livre e a `base_cards` vem de colar a decklist à
+mão — com um catálogo de precons na build, o nome passaria a um dropdown e a
+`base_cards` importava-se sozinha, sem colar nada. Por avaliar: tamanho do
+ficheiro resultante e frequência de atualização (precons saem a cada
+lançamento, ao contrário do catálogo principal que só muda por carta).
