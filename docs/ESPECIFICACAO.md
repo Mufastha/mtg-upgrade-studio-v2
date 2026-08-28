@@ -442,7 +442,38 @@ Três camadas de perfil, por ordem de confiança:
 **7.1 Determinística (automática).** Curva de mana, contagem de terrenos e fontes
 de mana, contagens por papel (ramp, draw, remoção, interação, wincons),
 histograma de oracle tags, densidade de interação. Produz a lista de **papéis em
-falta**, que alimenta o scoring.
+falta**, que alimenta o scoring. `src/rules/deck-metrics.js`.
+
+Papel de cada carta = conjuntos exatos de `oracle_tags`, verificados contra o
+catálogo real antes de escrever (substring como `"ramp"` apanha
+`"trample"`/`"rampage"` — nada a ver; os conjuntos abaixo são exatos):
+
+| Papel | Tags |
+|---|---|
+| Fontes de mana | `mana-rock`, `utility-mana-rock`, `mana-rock-with-set-s-mechanic`, `mana-dork`, `mana-dork-egg`, `ritual`, `ritual-untap` |
+| Ramp | fontes de mana + `ramp`, `ramp-with-set-s-mechanic`, `land-ramp`, `multi-land-ramp`, `combat-ramp`, `tutor-land-to-battlefield` |
+| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw`, `impulsive-draw`, `repeatable-draw`, `repeatable-loot`, `loot` |
+| Remoção | `spot-removal`, `removal-*` (criatura/destroy/exile/bounce/sacrifice/artefacto/terreno/encantamento/permanente/planeswalker/tuck/fight/equipamento/veículo/batalha/etc.), `swap-removal`, `repeatable-removal`, `sweeper`, `sweeper-one-sided`, `sweeper-graveyard` |
+| Interação | remoção + prefixo `protects-` + `gives-protection`/`gains-protection` + prefixo `counterspell` + prefixo `hate-` + `fog`/`fog-selective`/`pseudo-fog` |
+| Wincons | só `alternate-win-condition` — é o único sinal explícito que a Scryfall dá; não existe tag genérica "finisher"/"wincon" no vocabulário real (confirmado por amostragem ao catálogo, 31830 cartas) |
+
+Uma carta pode contar para mais que um papel (remoção conta sempre também
+como interação). `interactionDensity` = cartas únicas de remoção OU
+interação, a dividir pelo total de cartas não-terreno.
+
+**Papéis em falta** compara contra alvos de referência — senso comum de
+construção de Commander, **não** uma regra oficial nem calibrada: terrenos
+36, ramp 8, draw 8, remoção 8, interação 5, wincons 1. Por afinar
+empiricamente na Fase 4 (§12) contra decks já conhecidos (Shelob).
+
+**Onde aparece:** botão "Ver métricas" por deck na lista de "Decks
+guardados", ao lado de "Ver cartas" — computado sob demanda (mais trabalho
+por deck que a legalidade do §7.0, que corre sempre). Texto simples, sem
+gráficos.
+
+Testado contra o Limit Break real: 37 terrenos, 41 fontes de mana, ramp 11,
+draw 12, remoção 9, interação 23, wincons 1 (só Hellkite Tyrant) — nenhum
+papel em falta pelos alvos acima.
 
 **7.2 Declarada (formulário).** Arquétipo, eixos de sinergia principais, linhas
 indesejadas, cartas intocáveis. Trinta segundos por deck; resolve ambiguidade que
@@ -570,7 +601,10 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   2026, antes do resto da fase começar (motivado por um deck de 96 cartas
   aceite sem aviso). `src/rules/commander-legality.js` + painel por deck na
   lista de "Decks guardados".
-- Métricas determinísticas (§7.1)
+- ~~Métricas determinísticas (§7.1)~~ — **já feito**, 29 de agosto de 2026.
+  `src/rules/deck-metrics.js` + botão "Ver métricas" na lista de decks.
+  Testado contra o Limit Break real (37 terrenos, 41 fontes de mana, ramp
+  11, draw 12, remoção 9, interação 23, wincons 1, sem papéis em falta).
 - Formulário de perfil declarado (§7.2)
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)
