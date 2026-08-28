@@ -73,18 +73,26 @@ const REMOVAL_TAGS = new Set([
 
 // Interação lata: proteção, counterspells, taxas/hosers ("hate-*"), fog. Uma
 // carta de remoção também conta tipicamente como interação (não são baldes
-// exclusivos - ver interactionOrRemovalCount para a densidade).
+// exclusivos - ver interactionOrRemovalCards para a densidade).
+//
+// EM DISCUSSÃO (27/08): "hate-*" e "protects-*" apanham coisa demais - ver
+// nota na especificação §7.1. Mantido por agora para não mudar código antes
+// de decidir; a UI expansível existe precisamente para se poder ver isto.
 const INTERACTION_EXTRA_TAGS = new Set(['gives-protection', 'gains-protection', 'fog', 'fog-selective', 'pseudo-fog']);
 const INTERACTION_PREFIXES = ['protects-', 'hate-', 'counterspell'];
 
 // Só "alternate-win-condition" - é o único sinal explícito que a Scryfall dá
 // para "esta carta pode ganhar o jogo fora do dano de combate normal". Não
-// existe tag para "finisher"/"wincon" genérico no vocabulário real.
+// existe tag para "finisher"/"wincon" genérico no vocabulário real. EM
+// DISCUSSÃO: não cobre dano/perda de vida em massa nem peças de combo
+// (Walking Ballista) - ver nota na especificação §7.1.
 const WINCON_TAGS = new Set(['alternate-win-condition']);
 
 // Alvos de referência para "papéis em falta" - senso comum de construção de
-// Commander, não uma regra oficial. Ajustável; calibra-se a sério na Fase 4
-// contra decks conhecidos (ver §12 da especificação, pesos do scoring).
+// Commander, não uma regra oficial. EM DISCUSSÃO: um precon (Limit Break)
+// não falha nenhum destes alvos, o que sugere que estão demasiado baixos
+// para o propósito da app. Ajustável; calibra-se a sério na Fase 4 contra
+// decks conhecidos (ver §12 da especificação, pesos do scoring).
 const ROLE_TARGETS = { ramp: 8, draw: 8, removal: 8, interaction: 5, wincons: 1 };
 const LAND_TARGET = 36;
 
@@ -94,49 +102,58 @@ function hasAny(tags, set) {
 function hasPrefix(tags, prefixes) {
   return tags.some((t) => prefixes.some((p) => t.startsWith(p)));
 }
+function sumQty(list) {
+  return list.reduce((sum, e) => sum + e.quantity, 0);
+}
 
 export function computeDeckMetrics(deckCards, cardsByOracleId) {
-  let landCount = 0;
-  let manaSourceCount = 0;
-  let nonLandCount = 0;
-  let interactionOrRemovalCount = 0;
-  const roleCounts = { ramp: 0, draw: 0, removal: 0, interaction: 0, wincons: 0 };
-  const manaCurve = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, '7+': 0 };
+  const landCards = [];
+  const nonLandManaSourceCards = [];
+  const nonLandCards = [];
+  const roleCards = { ramp: [], draw: [], removal: [], interaction: [], wincons: [] };
+  const interactionOrRemovalCards = [];
+  const curveCards = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], '7+': [] };
   const tagHistogram = new Map();
 
   for (const dc of deckCards) {
     const card = cardsByOracleId.get(dc.oracle_id);
     if (!card) continue;
-    const qty = dc.quantity;
+    const entry = { oracle_id: card.oracle_id, name: card.name, quantity: dc.quantity };
     const tags = card.oracle_tags;
-    const isLand = card.type_line.includes('Land');
 
-    for (const t of tags) tagHistogram.set(t, (tagHistogram.get(t) ?? 0) + qty);
+    for (const t of tags) tagHistogram.set(t, (tagHistogram.get(t) ?? 0) + dc.quantity);
 
-    if (isLand) {
-      landCount += qty;
+    if (card.type_line.includes('Land')) {
+      landCards.push(entry);
       continue;
     }
 
-    nonLandCount += qty;
+    nonLandCards.push(entry);
     const bucket = card.cmc >= 7 ? '7+' : String(Math.floor(card.cmc));
-    manaCurve[bucket] += qty;
+    curveCards[bucket].push(entry);
 
-    const isRamp = hasAny(tags, RAMP_TAGS);
-    const isDraw = hasAny(tags, DRAW_TAGS);
     const isRemoval = hasAny(tags, REMOVAL_TAGS);
     const isInteraction = isRemoval || hasAny(tags, INTERACTION_EXTRA_TAGS) || hasPrefix(tags, INTERACTION_PREFIXES);
-    const isWincon = hasAny(tags, WINCON_TAGS);
 
-    if (hasAny(tags, MANA_SOURCE_TAGS)) manaSourceCount += qty;
-    if (isRamp) roleCounts.ramp += qty;
-    if (isDraw) roleCounts.draw += qty;
-    if (isRemoval) roleCounts.removal += qty;
-    if (isInteraction) roleCounts.interaction += qty;
-    if (isWincon) roleCounts.wincons += qty;
-    if (isInteraction) interactionOrRemovalCount += qty;
+    if (hasAny(tags, MANA_SOURCE_TAGS)) nonLandManaSourceCards.push(entry);
+    if (hasAny(tags, RAMP_TAGS)) roleCards.ramp.push(entry);
+    if (hasAny(tags, DRAW_TAGS)) roleCards.draw.push(entry);
+    if (isRemoval) roleCards.removal.push(entry);
+    if (isInteraction) {
+      roleCards.interaction.push(entry);
+      interactionOrRemovalCards.push(entry);
+    }
+    if (hasAny(tags, WINCON_TAGS)) roleCards.wincons.push(entry);
   }
-  manaSourceCount += landCount;
+
+  const landCount = sumQty(landCards);
+  const manaSourceCards = [...landCards, ...nonLandManaSourceCards];
+  const manaSourceCount = sumQty(manaSourceCards);
+  const totalNonLandCards = sumQty(nonLandCards);
+
+  const roleCounts = Object.fromEntries(Object.entries(roleCards).map(([role, list]) => [role, sumQty(list)]));
+
+  const manaCurve = Object.fromEntries(Object.entries(curveCards).map(([bucket, list]) => [bucket, sumQty(list)]));
 
   const missingRoles = [];
   if (landCount < LAND_TARGET) {
@@ -148,13 +165,17 @@ export function computeDeckMetrics(deckCards, cardsByOracleId) {
   }
 
   return {
-    totalNonLandCards: nonLandCount,
+    totalNonLandCards,
     landCount,
+    landCards,
     manaSourceCount,
+    manaSourceCards,
     manaCurve,
+    curveCards,
     roleCounts,
+    roleCards,
     tagHistogram,
-    interactionDensity: nonLandCount === 0 ? 0 : interactionOrRemovalCount / nonLandCount,
+    interactionDensity: totalNonLandCards === 0 ? 0 : sumQty(interactionOrRemovalCards) / totalNonLandCards,
     missingRoles,
   };
 }

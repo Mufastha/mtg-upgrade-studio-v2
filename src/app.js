@@ -178,6 +178,7 @@ function setupDeckView(cards) {
   let deckCards = [];
   let expandedDeckId = null;
   let metricsDeckId = null;
+  let expandedBucket = null; // "<deckId>:<bucketKey>" — só uma de cada vez
 
   function render() {
     const summaries = buildDeckSummaries(decks, deckCards, cardsByOracleId);
@@ -229,27 +230,53 @@ function setupDeckView(cards) {
     decksTableEl.hidden = false;
   }
 
+  function formatCardList(list) {
+    if (list.length === 0) return '(nenhuma)';
+    return [...list]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((e) => `${e.quantity > 1 ? `${e.quantity}x ` : ''}${escapeHtml(e.name)}`)
+      .join(', ');
+  }
+
   // §7.1 - curva de mana, terrenos/fontes de mana, contagens por papel,
-  // densidade de interação e papéis em falta. Sem gráficos: texto simples,
-  // como o resto da app.
+  // densidade de interação e papéis em falta. Cada contagem é um botão que
+  // expande a lista de cartas que a compõem - sem isso não dá para validar
+  // se a classificação está certa, só olhando para um número.
   function renderMetricsRow(deckId) {
     const m = buildDeckMetrics(deckId, deckCards, cardsByOracleId);
+
+    const buckets = [
+      { key: 'terrenos', label: 'Terrenos', count: m.landCount, list: m.landCards },
+      { key: 'fontes-mana', label: 'Fontes de mana', count: m.manaSourceCount, list: m.manaSourceCards },
+      { key: 'ramp', label: 'Ramp', count: m.roleCounts.ramp, list: m.roleCards.ramp },
+      { key: 'draw', label: 'Draw', count: m.roleCounts.draw, list: m.roleCards.draw },
+      { key: 'removal', label: 'Remoção', count: m.roleCounts.removal, list: m.roleCards.removal },
+      { key: 'interaction', label: 'Interação', count: m.roleCounts.interaction, list: m.roleCards.interaction },
+      { key: 'wincons', label: 'Wincons', count: m.roleCounts.wincons, list: m.roleCards.wincons },
+    ];
+
+    const bucketsHtml = buckets
+      .map((b) => {
+        const bucketId = `${deckId}:${b.key}`;
+        const isOpen = expandedBucket === bucketId;
+        const btn = `<button type="button" data-action="bucket" data-deck-id="${deckId}" data-bucket="${b.key}">${escapeHtml(b.label)}: ${b.count}${isOpen ? ' ▲' : ' ▼'}</button>`;
+        const detail = isOpen ? `<div class="bucket-cartas">${formatCardList(b.list)}</div>` : '';
+        return btn + detail;
+      })
+      .join(' ');
+
     const curve = ['0', '1', '2', '3', '4', '5', '6', '7+']
       .map((k) => `${k}:${m.manaCurve[k]}`)
       .join('  ');
-    const roles = Object.entries(m.roleCounts)
-      .map(([role, n]) => `${role} ${n}`)
-      .join(' · ');
     const missing =
       m.missingRoles.length === 0
         ? 'Nenhum — todos os papéis atingem o alvo de referência.'
         : m.missingRoles.map((r) => `${r.role}: tem ${r.have}, alvo ${r.target} (faltam ${r.short})`).join('<br>');
 
     return `<tr class="deck-metricas"><td colspan="6">` +
-      `Terrenos: ${m.landCount} · Fontes de mana: ${m.manaSourceCount} · ` +
+      `${bucketsHtml}<br>` +
       `Densidade de interação: ${(m.interactionDensity * 100).toFixed(0)}%<br>` +
       `Curva de mana (${m.totalNonLandCards} cartas não-terreno): ${escapeHtml(curve)}<br>` +
-      `Papéis: ${escapeHtml(roles)}<br>` +
       `<strong>Papéis em falta (alvos de referência, não regra oficial):</strong><br>${missing}` +
       `</td></tr>`;
   }
@@ -267,6 +294,14 @@ function setupDeckView(cards) {
 
     if (action === 'metricas') {
       metricsDeckId = metricsDeckId === deckId ? null : deckId;
+      expandedBucket = null;
+      render();
+      return;
+    }
+
+    if (action === 'bucket') {
+      const bucketId = `${deckId}:${btn.dataset.bucket}`;
+      expandedBucket = expandedBucket === bucketId ? null : bucketId;
       render();
       return;
     }
@@ -288,7 +323,10 @@ function setupDeckView(cards) {
       if (!confirmado) return;
       await deleteDeck(deckId);
       if (expandedDeckId === deckId) expandedDeckId = null;
-      if (metricsDeckId === deckId) metricsDeckId = null;
+      if (metricsDeckId === deckId) {
+        metricsDeckId = null;
+        expandedBucket = null;
+      }
       await refresh();
     }
   });
