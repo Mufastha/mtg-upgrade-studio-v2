@@ -31,12 +31,12 @@ async function main() {
   console.log('A juntar oracle_tags...');
   await mergeOracleTags(oracleTags.uri, catalog);
 
-  console.log('A construir printings.json e price_eur_min a partir de default_cards...');
-  const printings = await buildPrintings(defaultCards.uri, catalog, defaultCards.updatedAt);
-  console.log(`  ${printings.size} impressões`);
+  console.log('A construir printings.json, excluded.json e price_eur_min a partir de default_cards...');
+  const { printings, excluded } = await buildPrintings(defaultCards.uri, catalog, defaultCards.updatedAt);
+  console.log(`  ${printings.size} impressões, ${excluded.size} excluídas (com razão registada)`);
 
   console.log('A escrever ficheiros de saída...');
-  const { manifest, catalogBytes } = await writeOutput(OUT_DIR, { catalog, printings });
+  const { manifest, catalogBytes } = await writeOutput(OUT_DIR, { catalog, printings, excluded });
 
   const mb = (catalogBytes / 1_000_000).toFixed(2);
   console.log(`catalog.json.gz: ${mb} MB (${manifest.card_count} cartas)`);

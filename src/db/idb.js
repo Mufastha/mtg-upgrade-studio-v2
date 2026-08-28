@@ -1,5 +1,5 @@
 const DB_NAME = 'mtg-upgrade-studio';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 // Só as stores usadas até agora. deck_configs e runs (§3.3) entram com o
 // motor de recomendação.
@@ -8,9 +8,14 @@ const DB_VERSION = 3;
 // foil e não-foil da mesma impressão sob o MESMO scryfall_id (é a Scryfall a
 // tratá-los como o mesmo objeto, com finishes[] a listar os acabamentos) -
 // chavear só por scryfall_id perderia uma das duas quantidades ao gravar.
+//
+// excluded: razão de exclusão do catálogo por impressão (§3.1) - carregado
+// sob demanda pelo relatório de falhas do importador da ManaBox, tal como
+// printings, nunca no arranque.
 const STORES = {
   catalog: 'oracle_id',
   printings: 'scryfall_id',
+  excluded: 'scryfall_id',
   collection: ['scryfall_id', 'foil'],
   decks: 'deck_id',
   deck_cards: ['deck_id', 'oracle_id'],

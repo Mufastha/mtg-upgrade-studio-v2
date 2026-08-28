@@ -1,5 +1,6 @@
 import { loadCatalog } from './catalog/loader.js';
 import { loadPrintings } from './catalog/printings.js';
+import { loadExcluded } from './catalog/excluded.js';
 import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows } from './ui/deck-view.js';
@@ -288,13 +289,13 @@ function setupManaBoxImport(cards, collectionView) {
         `(${result.resolvedRows}/${result.totalRows} linhas resolvidas, ${failRate}% falhas).`;
       renderImportFailures(result.failures);
 
-      // A razão de cada falha não está nos dados locais (§3.1: só guardamos
-      // o que passa o filtro do catálogo) - só a Scryfall sabe porque é que
-      // uma carta ficou de fora. Pedida à parte, depois de mostrar a tabela,
-      // para não atrasar a confirmação do import em si.
+      // excluded.json (~2MB) só é pedido aqui, sob demanda, tal como
+      // printings.json (invariante 11) - a razão de cada falha é local,
+      // vinda da própria build do catálogo, nunca de um pedido à Scryfall
+      // em tempo real.
       if (result.failures.length > 0) {
-        const withReasons = await enrichFailureReasons(result.failures);
-        renderImportFailures(withReasons);
+        const { excluded } = await loadExcluded();
+        renderImportFailures(enrichFailureReasons(result.failures, excluded));
       }
     } catch (err) {
       importStatusEl.textContent = `Falha ao importar: ${err.message}`;

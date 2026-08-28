@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 
-export async function writeOutput(outDir, { catalog, printings }) {
+export async function writeOutput(outDir, { catalog, printings, excluded }) {
   await mkdir(outDir, { recursive: true });
 
   const catalogArray = [...catalog.values()];
@@ -11,6 +11,9 @@ export async function writeOutput(outDir, { catalog, printings }) {
 
   const printingsArray = [...printings.values()];
   await writeFile(`${outDir}/printings.json`, JSON.stringify(printingsArray));
+
+  const excludedArray = [...excluded.values()];
+  await writeFile(`${outDir}/excluded.json`, JSON.stringify(excludedArray));
 
   const builtAt = new Date().toISOString();
   const manifest = {
