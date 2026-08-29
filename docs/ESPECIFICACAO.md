@@ -298,7 +298,8 @@ deck {
   source_precon: {
     name,                    // nome legível do precon, mostrado na lista de decks
     base_cards: [oracle_id]  // as 100 cartas originais da lista do produto
-  } | null
+  } | null,
+  role_overrides: [{oracle_id, role, action: "add"|"remove"}]  // §7.1, opcional
 }
 ```
 
@@ -446,34 +447,89 @@ falta**, que alimenta o scoring. `src/rules/deck-metrics.js`.
 
 Papel de cada carta = conjuntos exatos de `oracle_tags`, verificados contra o
 catálogo real antes de escrever (substring como `"ramp"` apanha
-`"trample"`/`"rampage"` — nada a ver; os conjuntos abaixo são exatos):
+`"trample"`/`"rampage"` — nada a ver; os conjuntos abaixo são exatos).
 
-| Papel | Tags |
-|---|---|
-| Fontes de mana | `mana-rock`, `utility-mana-rock`, `mana-rock-with-set-s-mechanic`, `mana-dork`, `mana-dork-egg`, `ritual`, `ritual-untap` |
-| Ramp | fontes de mana + `ramp`, `ramp-with-set-s-mechanic`, `land-ramp`, `multi-land-ramp`, `combat-ramp`, `tutor-land-to-battlefield` |
-| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw`, `impulsive-draw`, `repeatable-draw`, `repeatable-loot`, `loot` |
-| Remoção | `spot-removal`, `removal-*` (criatura/destroy/exile/bounce/sacrifice/artefacto/terreno/encantamento/permanente/planeswalker/tuck/fight/equipamento/veículo/batalha/etc.), `swap-removal`, `repeatable-removal`, `sweeper`, `sweeper-one-sided`, `sweeper-graveyard` |
-| Interação | remoção + prefixo `protects-` + `gives-protection`/`gains-protection` + prefixo `counterspell` + prefixo `hate-` + `fog`/`fog-selective`/`pseudo-fog` |
-| Wincons | só `alternate-win-condition` — é o único sinal explícito que a Scryfall dá; não existe tag genérica "finisher"/"wincon" no vocabulário real (confirmado por amostragem ao catálogo, 31830 cartas) |
+**Tags de fog (`fog`, `fog-selective`, `pseudo-fog`) não classificam nada
+sozinhas.** Três cartas com essa tag dão três papéis diferentes: `Cloud's
+Limit Break` tem `multi-removal` — é Remoção, destrói os atacantes;
+`Arachnogenesis` tem `protects-planeswalker` — é Proteção, cria
+bloqueadores; `Aether Shockwave` só tem `tapper-creature` — não é nenhum dos
+dois, é Interação/Resposta. Confirmado até na própria carta *Fog*: já tem
+`protects-planeswalker` da Scryfall. O papel decide-se pelas outras tags da
+carta, nunca pela tag de fog isolada.
 
-Uma carta pode contar para mais que um papel (remoção conta sempre também
-como interação). `interactionDensity` = cartas únicas de remoção OU
-interação, a dividir pelo total de cartas não-terreno.
+| Papel | Tags | Alvo de referência |
+|---|---|---|
+| Fontes de mana | `mana-rock`, `utility-mana-rock`, `mana-rock-with-set-s-mechanic`, `mana-dork`, `mana-dork-egg`, `ritual`, `ritual-untap` | — (informativo, soma-se a terrenos) |
+| Ramp | fontes de mana + `ramp`, `ramp-with-set-s-mechanic`, `land-ramp`, `multi-land-ramp`, `combat-ramp`, `tutor-land-to-battlefield` | 8 |
+| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw`, `impulsive-draw`, `repeatable-draw`, `repeatable-loot`, `loot` | 8 |
+| Remoção | `spot-removal`, `removal-creature/destroy/exile/toughness/nonland/sacrifice/artifact/land/enchantment/permanent/planeswalker/fight/aura/equipment/noncreature/vehicle/battle/nonenchantment/spacecraft`, `swap-removal`, `repeatable-removal`, `sweeper*` — respostas **permanentes/duras** | 8 |
+| Proteção | prefixo `protects-`, `gives-protection`, `gains-protection` — proteger o que já tens em jogo | 3 |
+| Disrupção | prefixo `counterspell`, `discard`, `cost-increaser`, `cast-tax`, `tax-attack`, `tax-block`, `prevent-cast`, `stasis`, `mass-land-denial` — negar recursos/ações ao adversário | 2 |
+| Interação/Resposta | `removal-bounce`, `removal-tuck`, prefixo `tapper-` — responder sem remover nem proteger (tap em massa, bounce, tuck) | 2 |
+| Fecho de jogo | só `alternate-win-condition` — único sinal explícito da Scryfall para "ganha o jogo fora do combate normal"; não existe tag genérica "finisher"/"wincon". Fase 5: + combos do Commander Spellbook cujo resultado seja dano/vida em massa ou "win the game" (§12) | 1 |
+| Amplificadores | `extra-combat-phase` (fase de combate — não confundir com turno extra, critério diferente da checklist de bracket, §6), `anthem` (+X/+X real; `keyword-anthem`, que só concede keywords, fica de fora), `storm-like`, `storm-count-matters` — acelera um plano já existente, não fecha nada por si | 2 |
 
-**Papéis em falta** compara contra alvos de referência — senso comum de
-construção de Commander, **não** uma regra oficial nem calibrada: terrenos
-36, ramp 8, draw 8, remoção 8, interação 5, wincons 1. Por afinar
-empiricamente na Fase 4 (§12) contra decks já conhecidos (Shelob).
+Terrenos: 36.
+
+**Um papel nunca é uma regra sobre a cor do deck.** `Mana Tithe`, `Rebuff
+the Wicked`, `Dawn Charm` e `Lapse of Certainty` são brancas e têm
+`counterspell*`; a métrica lê o que está no deck, nunca presume a partir da
+identidade de cor. Disrupção é rara fora de azul, mas isso é um facto sobre
+o deck, não uma regra da métrica — nunca é zero por definição.
+
+**Os papéis podem sobrepor-se quando os efeitos são distintos** (`Boros
+Charm` dá indestructible OU queima por 4 — conta nos dois). O critério é
+sempre o **efeito** da carta, nunca o alvo escolhido: uma remoção apontada à
+própria criatura para a salvar de um sacrifício continua a ser remoção.
+**Não existe métrica agregada a somar baldes** — havia `interactionDensity`
+antes (remoção + interação, a dividir pelo total), dava 36,5% no Limit
+Break; o problema era a agregação em si, não os baldes.
+
+### Anulação por deck
+
+Os alvos e as tags acima são a regra **global**. Quando o Diogo discordar de
+uma carta específica num deck específico, pode mover ou duplicar essa carta
+para outros baldes — só naquele deck, sem tocar na regra global. Guardado em
+`deck.role_overrides: [{oracle_id, role, action: "add"|"remove"}]`.
+
+Se a mesma anulação se repetir em vários decks, é sinal de que a regra
+global está errada e deve ser corrigida em `deck-metrics.js`, não empilhada
+como anulação em cada deck.
+
+**Onde aparece:** dentro de cada balde expandido, cada carta é clicável e
+abre uma edição dos papéis dessa carta, só para aquele deck.
+
+### Alvos de referência
+
+Pisos de senso comum de construção de Commander — **avisos estruturais**,
+não regra oficial nem motor de recomendação (isso é o §8, calibrado a partir
+do plano do commander, não de alvos fixos — ver §12). **Não ajustados para
+nenhum deck passar ou falhar:** se um deck bem construído cumpre um alvo,
+esse é o resultado correto, não motivo para subir o número.
+
+- **Terrenos 36, ramp/draw/remoção 8** — piso citado pela generalidade dos
+  guias de construção EDH para um deck de 100 cartas funcionar sem
+  engasgar.
+- **Proteção 3, disrupção 2, interação/resposta 2** — categorias
+  opcionais/situacionais; um piso baixo reconhece que nem todo o deck
+  precisa de muito disto, mas zero é um sinal a assinalar.
+- **Fecho de jogo 1** — a maioria dos decks ganha por combate; um fecho
+  dedicado é bónus, não requisito, mas zero é informação útil ("este deck
+  só ganha se conseguir atacar").
+- **Amplificadores 2** — idem, situacional.
 
 **Onde aparece:** botão "Ver métricas" por deck na lista de "Decks
 guardados", ao lado de "Ver cartas" — computado sob demanda (mais trabalho
-por deck que a legalidade do §7.0, que corre sempre). Texto simples, sem
+por deck que a legalidade do §7.0, que corre sempre). Cada contagem é um
+botão que expande a lista de cartas que a compõe. Texto simples, sem
 gráficos.
 
 Testado contra o Limit Break real: 37 terrenos, 41 fontes de mana, ramp 11,
-draw 12, remoção 9, interação 23, wincons 1 (só Hellkite Tyrant) — nenhum
-papel em falta pelos alvos acima.
+draw 12, remoção 9, proteção 8, disrupção 0, interação/resposta 3, fecho de
+jogo 1 (Hellkite Tyrant), amplificadores 1 (Tifa, Martial Artist, por
+combate extra). **Papéis em falta: disrupção (0 de 2) e amplificadores (1 de
+2)** — um resultado real e não-trivial, nem tudo passa nem tudo falha.
 
 **7.2 Declarada (formulário).** Arquétipo, eixos de sinergia principais, linhas
 indesejadas, cartas intocáveis. Trinta segundos por deck; resolve ambiguidade que
@@ -601,10 +657,15 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   2026, antes do resto da fase começar (motivado por um deck de 96 cartas
   aceite sem aviso). `src/rules/commander-legality.js` + painel por deck na
   lista de "Decks guardados".
-- ~~Métricas determinísticas (§7.1)~~ — **já feito**, 29 de agosto de 2026.
-  `src/rules/deck-metrics.js` + botão "Ver métricas" na lista de decks.
-  Testado contra o Limit Break real (37 terrenos, 41 fontes de mana, ramp
-  11, draw 12, remoção 9, interação 23, wincons 1, sem papéis em falta).
+- ~~Métricas determinísticas (§7.1)~~ — **já feito**, 29 de agosto de 2026,
+  revisto no mesmo dia depois de uma primeira ronda (a interação estava a
+  somar remoção+proteção, os alvos deixavam o Limit Break passar em tudo).
+  `src/rules/deck-metrics.js` + botão "Ver métricas" na lista de decks, com
+  anulação por deck. Oito papéis: ramp, draw, remoção, proteção, disrupção,
+  interação/resposta, fecho de jogo, amplificadores. Testado contra o Limit
+  Break real: 37 terrenos, 41 fontes de mana, ramp 11, draw 12, remoção 9,
+  proteção 8, disrupção 0, interação/resposta 3, fecho de jogo 1,
+  amplificadores 1 — falta disrupção e amplificadores, um resultado real.
 - Formulário de perfil declarado (§7.2)
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)
