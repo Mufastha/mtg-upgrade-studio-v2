@@ -373,7 +373,8 @@ Cada linha da checklist devolve `pass`, `fail` ou `review`:
 | Extra turns | oracle tags + lista curada | pass / fail |
 | Mass land denial | oracle tags + lista curada | pass / fail |
 | Combos de 2 cartas | Commander Spellbook | pass / review |
-| "Só late game" | heurística sobre custo total das peças | review |
+| "Só late game" | custo total das peças vs `early_combo_threshold_mana` (§6.4) | review até Commander Spellbook (Fase 5); depois pass / fail |
+| Commander em combo de 2 (grupo) | Commander Spellbook + `no_combo_with_commander` (§6.4) | review até Commander Spellbook (Fase 5); depois pass / fail |
 | Turno de fim | não determinável a partir da lista | review |
 
 Uma checklist que dá verde sem ter verificado é pior do que não existir.
@@ -403,6 +404,34 @@ Divisão de responsabilidades:
   compacto do EDHPowerLevel, que tem biblioteca open-source. **A confirmar na
   implementação** — não foi possível verificar a biblioteca a partir da
   documentação pública.
+
+### 6.4 Interpretação do grupo (house rules)
+
+O grupo de torneio de Bracket 3 do Diogo opera regras mais específicas do que
+o texto da WotC, que não dá números para "turno esperado" nem define "early
+combo". Guardadas em `bracket-rules.json`, num bloco claramente marcado como
+leitura do grupo, nunca como regra oficial:
+
+```
+group_interpretation: {
+  source: "grupo de torneio B3 do Diogo",
+  expected_turn_count: { min: 6, max: 7 },
+  no_combo_with_commander: bool,   // restrição adicional à regra oficial de combos de 2 cartas
+  early_combo_threshold_mana: 8    // custo total das peças, incluindo ativações
+}
+```
+
+- `expected_turn_count` fica em `review` (§6.1) — não é determinável a
+  partir da lista, só documenta a expectativa do grupo.
+- `no_combo_with_commander` é mais estrito do que a regra oficial de combos
+  de 2 cartas: mesmo um combo que a WotC deixaria passar por ser late game
+  falha se o commander for uma das duas peças. Calculável quando o Commander
+  Spellbook entrar (Fase 5): basta verificar se `commander_oracle_id`
+  aparece na lista de cartas de algum combo de 2 peças.
+- `early_combo_threshold_mana` torna **"só late game" computável** (§6.1):
+  um combo é precoce se o custo total das peças — casting + ativações — for
+  inferior a este valor. Antes do Commander Spellbook (Fase 5) fica
+  `review`, como já estava; depois passa a `pass`/`fail`.
 
 ---
 
@@ -440,10 +469,12 @@ visível quando há problemas, com os avisos listados um a um.
 
 Três camadas de perfil, por ordem de confiança:
 
-**7.1 Determinística (automática).** Curva de mana, contagem de terrenos e fontes
-de mana, contagens por papel (ramp, draw, remoção, interação, wincons),
-histograma de oracle tags, densidade de interação. Produz a lista de **papéis em
-falta**, que alimenta o scoring. `src/rules/deck-metrics.js`.
+**7.1 Determinística (automática).** Curva de mana, contagem de terrenos e
+fontes de mana, contagens por papel (ramp, draw, remoção, proteção,
+disrupção, interação/resposta, fecho de jogo, amplificadores), histograma de
+oracle tags. Produz a lista de **papéis em falta** — aviso estrutural, nunca
+termo do score do §8 (ver "Alvos de referência" abaixo e §8 Fase C).
+`src/rules/deck-metrics.js`.
 
 Papel de cada carta = conjuntos exatos de `oracle_tags`, verificados contra o
 catálogo real antes de escrever (substring como `"ramp"` apanha
@@ -531,9 +562,32 @@ jogo 1 (Hellkite Tyrant), amplificadores 1 (Tifa, Martial Artist, por
 combate extra). **Papéis em falta: disrupção (0 de 2) e amplificadores (1 de
 2)** — um resultado real e não-trivial, nem tudo passa nem tudo falha.
 
-**7.2 Declarada (formulário).** Arquétipo, eixos de sinergia principais, linhas
-indesejadas, cartas intocáveis. Trinta segundos por deck; resolve ambiguidade que
-nenhum algoritmo adivinha.
+**7.2 Declarada (formulário).** Define o **plano de jogo** do deck — o que a
+Fase C do §8 usa para pontuar cada carta. Semeado automaticamente a partir das
+`oracle_tags` do commander e confirmado/ajustado pelo Diogo; trinta segundos
+por deck, nunca formulário em branco.
+
+Confirmado com os dois commanders possíveis do Limit Break: `Cloud,
+Ex-SOLDIER` tem `synergy-equipment`, `quick-equip`, `power-matters-self` —
+plano de equipamento; `Tifa, Martial Artist` tem `power-matters`,
+`extra-combat-phase`, `extra-untap`, **sem nenhuma tag de equipamento** —
+plano de combates extra. Mesmo deck, dois commanders possíveis, dois planos
+distintos com as mesmas contagens de papel do §7.1 — é exatamente por isto
+que os alvos do §7.1 nunca podem ser o motor de recomendação (§8), só aviso
+estrutural.
+
+```
+game_plan {
+  deck_id,
+  synergy_tags: [oracle_tag],  // semeado do commander, editável
+  archetype,                   // texto livre curto, ex. "equipment voltron"
+  avoid_tags: [oracle_tag]     // linhas indesejadas
+}
+```
+
+`untouchable` continua em `deck_config` (§5) — protege uma carta de aparecer
+como corte numa configuração específica; não é sobre o plano em si, por isso
+não muda de sítio.
 
 **7.3 Sintetizada (LLM).** O modelo lê a lista mais as métricas e propõe um
 perfil em JSON estruturado. **Sempre revisto e editado pelo utilizador antes de
@@ -554,15 +608,38 @@ alvo, `exclude_tags`, `max_cmc`, Reserved List se excluída, cartas já no deck,
 cartas em `source_precon.base_cards` (§4.3) quando o deck tiver precon de
 origem declarado. Uma carta que falhe qualquer filtro não continua.
 
-**Fase C — Scoring.** Soma ponderada, com os pesos configuráveis e visíveis:
+**Fase C — Scoring.** Compara cartas do deck com candidatas filtradas pela
+mesma fórmula — não gera candidatas para preencher papéis em falta, mede
+mérito face ao **plano de jogo** do commander (§7.2):
 
 ```
-score = w1 * sobreposição_de_tags_com_perfil
-      + w2 * preenchimento_de_papel_em_falta
-      + w3 * eficiência (proxy: edhrec_rank)
-      + w4 * bónus_já_na_coleção
-      - w5 * penalização_de_preço
+score(carta, plano) = w1 * sobreposição_de_tags_com_plano.synergy_tags
+                     + w2 * eficiência (proxy: edhrec_rank)
+                     - w3 * sobreposição_com_plano.avoid_tags
 ```
+
+Pesos `w1..w3` são **visíveis e ajustáveis na interface** (sliders), nunca
+constantes no código. Ainda não se sabe quanto vale cada termo — só se
+descobre comparando recomendações com o julgamento do Diogo; enterrados no
+código, cada afinação exigiria uma sessão de desenvolvimento em vez de um
+slider (aberto no §12).
+
+Posse (`Tenho`/`Comprar`/`Proxy`, §9) e preço são **classificação ao lado de
+cada carta, nunca fator do score.** Já ter a carta é custo, não mérito;
+misturá-los empurraria para baixo uma carta claramente melhor só por não
+estar na coleção. Quem quiser ver só o que já tem liga um filtro — a
+ordenação não muda com isso.
+
+As cartas do deck (exceto commander e `untouchable`, §5) e as candidatas
+filtradas na Fase B são pontuadas pela mesma fórmula. Ordena-se o deck a
+subir (pior primeiro) e as candidatas a descer (melhor primeiro); empareha-se
+pior com melhor. `missingRoles` do §7.1 fica como aviso estrutural ao lado da
+lista ("30 terrenos é pouco"), nunca como termo do score — um deck já
+equilibrado não pode deixar o motor mudo.
+
+**Critério de paragem: `max_changes` (§5), não um score alvo.** O Diogo
+decide quantas trocas quer ver; a engine não para porque uma carta "já
+passou" um limiar.
 
 **Fase D — Reordenação e justificação (LLM).** Apenas sobre o top ~40. Devolve
 ordenação, justificação por carta e pares adição/corte propostos. Todo o output
@@ -571,6 +648,14 @@ ordenação, justificação por carta e pares adição/corte propostos. Todo o o
 **Cortes.** Um deck de 100 cartas não aceita adições sem remoções. A engine
 propõe pares; o corte é sempre decisão do utilizador; cartas em `untouchable`
 nunca aparecem como corte.
+
+Quando o corte é forçado por uma barreira do bracket alvo — por exemplo, o
+deck excede o limite de Game Changers do §6 — o critério de escolha é o
+mesmo score: corta-se primeiro o Game Changer pior pontuado face ao plano.
+Se esse Game Changer for a única carta do deck a preencher um papel do §7.1,
+o par de substituição é obrigatório, tirado da mesma Fase C e filtrado a
+preencher esse papel. **Corte sem substituto é recomendação incompleta** —
+nunca se mostra um corte sozinho.
 
 ---
 
@@ -710,8 +795,10 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 | LLM inventa cartas | Validação contra catálogo (P5) |
 | Biblioteca HXDEC não serve | Fallback: copiar e colar, como já é feito hoje |
 
-**Aberto:** pesos iniciais do scoring (§8 Fase C) — a calibrar empiricamente na
-Fase 4 contra decks já conhecidos.
+**Aberto:** valores iniciais dos pesos `w1..w3` do score (§8 Fase C — já
+sliders na UI, não constantes no código) — a calibrar empiricamente
+comparando recomendações com o julgamento do Diogo, Fase 4 contra o Shelob,
+que ele já conhece a fundo.
 
 **Trabalho futuro:** catálogo de precons no builder, a partir do
 `taw/magic-preconstructed-decks-data` ou do MTGJSON. Hoje o campo "É um deck
