@@ -489,20 +489,31 @@ dois, é Interação/Resposta. Confirmado até na própria carta *Fog*: já tem
 `protects-planeswalker` da Scryfall. O papel decide-se pelas outras tags da
 carta, nunca pela tag de fog isolada.
 
-**Duas famílias de tags: função vs forma.** Tags que descrevem **função**
-(`removal-*`, `counterspell*`, `draw-engine`, `mana-rock`, ...) mapeiam
-diretamente para um papel — são fiáveis, é o que a tabela abaixo usa. Tags
-que descrevem **forma** (`pseudo-fog`/`fog*`, prefixo `hate-`, `protects-*`)
-não são classificáveis com confiança por si só: a mesma forma serve efeitos
-completamente diferentes — as três cartas de fog acima já mostram isto com
-três papéis diferentes para a mesma tag.
+**A fiabilidade de uma família de tags não é uma lista fixa — é um teste
+mecânico sobre o catálogo.** Para cada família de `oracle_tags`, olha-se
+como as cartas do catálogo que a têm se distribuem pelos papéis desta
+tabela: se convergem num papel, a tag classifica sozinha; se se espalham
+por vários, não classifica com confiança e a carta fica marcada como
+incerta (abaixo). `fog`/`fog-selective`/`pseudo-fog`, prefixo `hate-` e
+prefixo `protects-` são os que já correram este teste — três cartas, três
+papéis, no caso do fog. O Tagger tem centenas de famílias; avaliámos meia
+dúzia. Estas são **exemplos do critério, não a lista completa** — uma
+família nunca avaliada não se presume fiável nem dispersa, corre-se o
+teste.
 
-Quando o classificador não consegue arrumar uma carta com confiança a partir
-de tags de função, coloca-a no papel mais provável **marcada como incerta**,
-visível como tal — nunca classificada em silêncio. O Diogo corrige as
-poucas que interessam via anulação por deck (abaixo), que também limpa a
-marca de incerteza para essa carta. É o mesmo princípio do estado `review`
-na checklist de bracket (§6.1): onde a app não sabe, diz que não sabe.
+A distinção **função vs forma** usada para explicar isto é conceptual, um
+atalho para o Diogo perceber o critério — não é algoritmo, e o código nunca
+tenta aplicá-la carta a carta ("esta tag descreve forma"). A decisão vem
+sempre da distribuição medida no catálogo, por família, nunca de uma lista
+de nomes de tags escritos à mão.
+
+Quando uma carta só tem tags de famílias marcadas como dispersas (ou
+nenhuma tag aplicável), o classificador coloca-a no papel mais provável
+**marcada como incerta**, visível como tal — nunca classificada em
+silêncio. O Diogo corrige as poucas que interessam via anulação por deck
+(abaixo), que também limpa a marca de incerteza para essa carta. É o mesmo
+princípio do estado `review` na checklist de bracket (§6.1): onde a app não
+sabe, diz que não sabe.
 
 | Papel | Tags | Alvo de referência |
 |---|---|---|

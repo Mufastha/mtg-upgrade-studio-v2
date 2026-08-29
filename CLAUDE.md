@@ -71,9 +71,11 @@ Fase 2 (análise de deck) por começar, exceto duas partes já feitas — ver
 §11 da especificação:
 - **§7.0** (validação de legalidade do deck).
 - **§7.1** (métricas determinísticas por papel), revista no mesmo dia:
-  tags de fog/forma não classificam sozinhas (só as de função mapeiam
-  diretamente para papel), sem métrica agregada a somar baldes, anulação
-  por deck quando o Diogo discorda da classificação global.
+  fiabilidade de uma família de tags apura-se por teste mecânico (como as
+  cartas do catálogo com essa tag se distribuem pelos papéis — converge
+  numa, classifica; espalha-se, não classifica), não por lista fixa; sem
+  métrica agregada a somar baldes; anulação por deck quando o Diogo
+  discorda da classificação global.
 
 Depois de aceite, a Fase 1 recebeu uma ronda de correções vindas de uso
 real: visualizador de coleção e de decks guardados (pesquisa, paginação,
@@ -85,9 +87,15 @@ para explicar um erro (violava a invariante 10); a razão vem agora de
 
 **Decidido mas ainda por implementar** (documentado em §7.1/§7.2/§8/§6.4 da
 especificação, para retomar em código sem re-discutir):
-- Cartas com tags só de forma (`pseudo-fog`, `hate-*`, `protects-*`) que o
-  classificador não consegue arrumar com confiança ficam marcadas como
-  incertas em vez de classificadas em silêncio (§7.1).
+- Uma família de tags só classifica sozinha se as cartas do catálogo que a
+  têm convergirem num papel; espalhada por vários papéis, é dispersa e não
+  classifica. Verificado hoje sobre meia dúzia de famílias (`fog`/
+  `fog-selective`/`pseudo-fog`, prefixo `hate-`, prefixo `protects-`) —
+  **exemplos do critério, não a lista completa**; o Tagger tem centenas de
+  famílias por avaliar. Cartas que só têm tags dispersas ficam marcadas
+  como incertas em vez de classificadas em silêncio (§7.1). A distinção
+  "função vs forma" é só um atalho conceptual para explicar o critério; o
+  código nunca a aplica carta a carta, só a distribuição medida.
 - O plano de jogo do commander (§7.2) — semeado das `oracle_tags` do
   commander — substitui os alvos fixos como motor de recomendação: o §8
   passa a pontuar cada carta do deck e cada candidata pelo mesmo score de
@@ -99,6 +107,12 @@ especificação, para retomar em código sem re-discutir):
   commander, limiar de mana de combo precoce) ficam em
   `group_interpretation` dentro de `bracket-rules.json` (§6.4), marcadas
   como leitura do grupo, não regra oficial.
+
+**Primeiro passo da próxima sessão, antes de tocar no código do §7.2:**
+correr o teste de convergência/dispersão (§7.1) sobre **todas** as famílias
+de `oracle_tags` do catálogo — não só as meia dúzia já vistas — e mostrar ao
+Diogo que famílias convergem num papel e quais se espalham, antes de fixar
+qualquer limiar de "quão concentrada chega para classificar sozinha".
 
 Dois decks de validação, com papéis diferentes (ver §11 da especificação):
 - **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
