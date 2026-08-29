@@ -67,8 +67,13 @@ e atualizar a especificação primeiro — não contorná-la em código.
 
 Fase 1 (fundação de dados) aceite — os três critérios do §11 da
 especificação estão cumpridos e testados contra dados reais do Diogo.
-Fase 2 (análise de deck) por começar, exceto §7.0 (validação de legalidade
-do deck), que já está feito — ver §11 da especificação.
+Fase 2 (análise de deck) por começar, exceto duas partes já feitas — ver
+§11 da especificação:
+- **§7.0** (validação de legalidade do deck).
+- **§7.1** (métricas determinísticas por papel), revista no mesmo dia:
+  tags de fog/forma não classificam sozinhas (só as de função mapeiam
+  diretamente para papel), sem métrica agregada a somar baldes, anulação
+  por deck quando o Diogo discorda da classificação global.
 
 Depois de aceite, a Fase 1 recebeu uma ronda de correções vindas de uso
 real: visualizador de coleção e de decks guardados (pesquisa, paginação,
@@ -77,6 +82,23 @@ coleção, importar JSON), e a correção mais importante — o relatório de
 falhas do importador da ManaBox deixou de depender da rede em tempo real
 para explicar um erro (violava a invariante 10); a razão vem agora de
 `excluded.json`, gerado na build.
+
+**Decidido mas ainda por implementar** (documentado em §7.1/§7.2/§8/§6.4 da
+especificação, para retomar em código sem re-discutir):
+- Cartas com tags só de forma (`pseudo-fog`, `hate-*`, `protects-*`) que o
+  classificador não consegue arrumar com confiança ficam marcadas como
+  incertas em vez de classificadas em silêncio (§7.1).
+- O plano de jogo do commander (§7.2) — semeado das `oracle_tags` do
+  commander — substitui os alvos fixos como motor de recomendação: o §8
+  passa a pontuar cada carta do deck e cada candidata pelo mesmo score de
+  mérito face ao plano, nunca por preenchimento de papel em falta; posse e
+  preço ficam como classificação ao lado, fora do score; os pesos do score
+  são sliders na UI, não constantes no código.
+- Cortes por excesso de Game Changers do bracket exigem par de substituição
+  (§8); regras próprias do grupo de torneio (turno esperado, combo com o
+  commander, limiar de mana de combo precoce) ficam em
+  `group_interpretation` dentro de `bracket-rules.json` (§6.4), marcadas
+  como leitura do grupo, não regra oficial.
 
 Dois decks de validação, com papéis diferentes (ver §11 da especificação):
 - **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
