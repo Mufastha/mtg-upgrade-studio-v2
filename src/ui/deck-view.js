@@ -27,10 +27,12 @@ export function buildDeckSummaries(decks, deckCards, cardsByOracleId) {
 
 // §7.1 - computado sob demanda (só quando "Ver métricas" é aberto), não a
 // cada render da lista como a legalidade (§7.0): é mais trabalho por deck e
-// não precisa de estar sempre visível.
-export function buildDeckMetrics(deckId, deckCards, cardsByOracleId) {
+// não precisa de estar sempre visível. role_overrides vive no próprio
+// registo do deck (anulações por deck, ver decklist.js: setRoleOverride).
+export function buildDeckMetrics(deckId, decks, deckCards, cardsByOracleId) {
+  const deck = decks.find((d) => d.deck_id === deckId);
   const ownCards = deckCards.filter((dc) => dc.deck_id === deckId);
-  return computeDeckMetrics(ownCards, cardsByOracleId);
+  return computeDeckMetrics(ownCards, cardsByOracleId, deck?.role_overrides ?? []);
 }
 
 export function buildDeckCardRows(deckId, deckCards, cardsByOracleId) {

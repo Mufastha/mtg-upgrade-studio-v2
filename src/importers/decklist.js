@@ -118,3 +118,19 @@ export async function deleteDeck(deckId) {
   await deleteRecord('decks', deckId);
   await deleteWhere('deck_cards', (dc) => dc.deck_id === deckId);
 }
+
+// Anulação por deck da classificação por papel (§7.1) - quando a regra
+// global erra para este deck específico, sem mudar a regra global. Guardada
+// em deck.role_overrides: [{oracle_id, role, action: "add"|"remove"}].
+// autoIncluded é o que a classificação automática (sem anulações) já diz -
+// se o novo estado bate com isso, a anulação torna-se desnecessária e é
+// removida em vez de guardar uma entrada sem efeito.
+export async function setRoleOverride(deckId, oracleId, role, included, autoIncluded) {
+  const deck = await getRecord('decks', deckId);
+  if (!deck) throw new Error('Deck não encontrado.');
+  const overrides = (deck.role_overrides ?? []).filter((o) => !(o.oracle_id === oracleId && o.role === role));
+  if (included !== autoIncluded) {
+    overrides.push({ oracle_id: oracleId, role, action: included ? 'add' : 'remove' });
+  }
+  await putAll('decks', [{ ...deck, role_overrides: overrides }]);
+}

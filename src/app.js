@@ -4,8 +4,9 @@ import { loadExcluded } from './catalog/excluded.js';
 import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows, buildDeckMetrics } from './ui/deck-view.js';
+import { ROLE_KEYS } from './rules/deck-metrics.js';
 import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
-import { resolveDecklist, saveDeck, renameDeck, deleteDeck } from './importers/decklist.js';
+import { resolveDecklist, saveDeck, renameDeck, deleteDeck, setRoleOverride } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData, FORMAT as PERSONAL_DATA_FORMAT } from './data/personal.js';
 
 const statusEl = document.getElementById('status');
@@ -50,6 +51,19 @@ const dataStatusEl = document.getElementById('dados-status');
 const MAX_RESULTS = 50;
 const COLLECTION_PAGE_SIZE = 50;
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+// §7.1 - rótulos em português dos 8 papéis (ROLE_KEYS vem de deck-metrics.js,
+// nomes internos em inglês por convenção).
+const ROLE_LABELS = {
+  ramp: 'Ramp',
+  draw: 'Draw',
+  removal: 'Remoção',
+  protection: 'Proteção',
+  disruption: 'Disrupção',
+  interaction: 'Interação/Resposta',
+  closers: 'Fecho de jogo',
+  amplifiers: 'Amplificadores',
+};
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
@@ -230,29 +244,40 @@ function setupDeckView(cards) {
     decksTableEl.hidden = false;
   }
 
-  function formatCardList(list) {
+  // Cartas de um balde de PAPEL (não terrenos/fontes de mana, que são
+  // classificação objetiva, não julgamento) ficam clicáveis - abre a edição
+  // de anulação por deck (§7.1).
+  function formatCardList(list, deckId, editableRole) {
     if (list.length === 0) return '(nenhuma)';
     return [...list]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((e) => `${e.quantity > 1 ? `${e.quantity}x ` : ''}${escapeHtml(e.name)}`)
-      .join(', ');
+      .map((e) => {
+        const qty = e.quantity > 1 ? `${e.quantity}x ` : '';
+        const label = `${qty}${escapeHtml(e.name)}`;
+        return editableRole
+          ? `<button type="button" class="carta-papel" data-action="editar-papel" data-deck-id="${deckId}" data-oracle-id="${e.oracle_id}">${label}</button>`
+          : label;
+      })
+      .join(editableRole ? ' ' : ', ');
   }
 
-  // §7.1 - curva de mana, terrenos/fontes de mana, contagens por papel,
-  // densidade de interação e papéis em falta. Cada contagem é um botão que
-  // expande a lista de cartas que a compõem - sem isso não dá para validar
-  // se a classificação está certa, só olhando para um número.
+  // §7.1 - curva de mana, terrenos/fontes de mana, oito papéis (podem
+  // sobrepor-se quando os efeitos são distintos - nunca há um total a somar
+  // baldes) e papéis em falta. Cada contagem é um botão que expande a lista
+  // de cartas que a compõem - sem isso não dá para validar a classificação.
   function renderMetricsRow(deckId) {
-    const m = buildDeckMetrics(deckId, deckCards, cardsByOracleId);
+    const m = buildDeckMetrics(deckId, decks, deckCards, cardsByOracleId);
 
     const buckets = [
-      { key: 'terrenos', label: 'Terrenos', count: m.landCount, list: m.landCards },
-      { key: 'fontes-mana', label: 'Fontes de mana', count: m.manaSourceCount, list: m.manaSourceCards },
-      { key: 'ramp', label: 'Ramp', count: m.roleCounts.ramp, list: m.roleCards.ramp },
-      { key: 'draw', label: 'Draw', count: m.roleCounts.draw, list: m.roleCards.draw },
-      { key: 'removal', label: 'Remoção', count: m.roleCounts.removal, list: m.roleCards.removal },
-      { key: 'interaction', label: 'Interação', count: m.roleCounts.interaction, list: m.roleCards.interaction },
-      { key: 'wincons', label: 'Wincons', count: m.roleCounts.wincons, list: m.roleCards.wincons },
+      { key: 'terrenos', label: 'Terrenos', count: m.landCount, list: m.landCards, editable: false },
+      { key: 'fontes-mana', label: 'Fontes de mana', count: m.manaSourceCount, list: m.manaSourceCards, editable: false },
+      ...ROLE_KEYS.map((role) => ({
+        key: role,
+        label: ROLE_LABELS[role],
+        count: m.roleCounts[role],
+        list: m.roleCards[role],
+        editable: true,
+      })),
     ];
 
     const bucketsHtml = buckets
@@ -260,7 +285,7 @@ function setupDeckView(cards) {
         const bucketId = `${deckId}:${b.key}`;
         const isOpen = expandedBucket === bucketId;
         const btn = `<button type="button" data-action="bucket" data-deck-id="${deckId}" data-bucket="${b.key}">${escapeHtml(b.label)}: ${b.count}${isOpen ? ' ▲' : ' ▼'}</button>`;
-        const detail = isOpen ? `<div class="bucket-cartas">${formatCardList(b.list)}</div>` : '';
+        const detail = isOpen ? `<div class="bucket-cartas">${formatCardList(b.list, deckId, b.editable)}</div>` : '';
         return btn + detail;
       })
       .join(' ');
@@ -271,13 +296,15 @@ function setupDeckView(cards) {
     const missing =
       m.missingRoles.length === 0
         ? 'Nenhum — todos os papéis atingem o alvo de referência.'
-        : m.missingRoles.map((r) => `${r.role}: tem ${r.have}, alvo ${r.target} (faltam ${r.short})`).join('<br>');
+        : m.missingRoles
+            .map((r) => `${ROLE_LABELS[r.role] ?? r.role}: tem ${r.have}, alvo ${r.target} (faltam ${r.short})`)
+            .join('<br>');
 
     return `<tr class="deck-metricas"><td colspan="6">` +
       `${bucketsHtml}<br>` +
-      `Densidade de interação: ${(m.interactionDensity * 100).toFixed(0)}%<br>` +
       `Curva de mana (${m.totalNonLandCards} cartas não-terreno): ${escapeHtml(curve)}<br>` +
-      `<strong>Papéis em falta (alvos de referência, não regra oficial):</strong><br>${missing}` +
+      `<strong>Papéis em falta (alvos de referência, não regra oficial — ver §12):</strong><br>${missing}` +
+      `<br><em>Clica numa carta dentro de um papel para corrigir a classificação só neste deck.</em>` +
       `</td></tr>`;
   }
 
@@ -303,6 +330,35 @@ function setupDeckView(cards) {
       const bucketId = `${deckId}:${btn.dataset.bucket}`;
       expandedBucket = expandedBucket === bucketId ? null : bucketId;
       render();
+      return;
+    }
+
+    if (action === 'editar-papel') {
+      const oracleId = btn.dataset.oracleId;
+      const card = cardsByOracleId.get(oracleId);
+      const m = buildDeckMetrics(deckId, decks, deckCards, cardsByOracleId);
+      const currentRoles = ROLE_KEYS.filter((k) => m.roleCards[k].some((e) => e.oracle_id === oracleId));
+      const autoRoles = ROLE_KEYS.filter((k) => m.autoRoleCards[k].some((e) => e.oracle_id === oracleId));
+      const labelList = ROLE_KEYS.map((k) => ROLE_LABELS[k]).join(', ');
+      const input = window.prompt(
+        `Papéis de "${card?.name}" neste deck (separa por vírgula) — apaga/acrescenta para corrigir:\n${labelList}`,
+        currentRoles.map((k) => ROLE_LABELS[k]).join(', ')
+      );
+      if (input == null) return; // cancelado
+      const desired = new Set(
+        input
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+      );
+      for (const role of ROLE_KEYS) {
+        const included = desired.has(ROLE_LABELS[role].toLowerCase());
+        const wasIncluded = currentRoles.includes(role);
+        if (included !== wasIncluded) {
+          await setRoleOverride(deckId, oracleId, role, included, autoRoles.includes(role));
+        }
+      }
+      await refresh();
       return;
     }
 
