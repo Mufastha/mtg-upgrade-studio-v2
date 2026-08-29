@@ -489,6 +489,21 @@ dois, é Interação/Resposta. Confirmado até na própria carta *Fog*: já tem
 `protects-planeswalker` da Scryfall. O papel decide-se pelas outras tags da
 carta, nunca pela tag de fog isolada.
 
+**Duas famílias de tags: função vs forma.** Tags que descrevem **função**
+(`removal-*`, `counterspell*`, `draw-engine`, `mana-rock`, ...) mapeiam
+diretamente para um papel — são fiáveis, é o que a tabela abaixo usa. Tags
+que descrevem **forma** (`pseudo-fog`/`fog*`, prefixo `hate-`, `protects-*`)
+não são classificáveis com confiança por si só: a mesma forma serve efeitos
+completamente diferentes — as três cartas de fog acima já mostram isto com
+três papéis diferentes para a mesma tag.
+
+Quando o classificador não consegue arrumar uma carta com confiança a partir
+de tags de função, coloca-a no papel mais provável **marcada como incerta**,
+visível como tal — nunca classificada em silêncio. O Diogo corrige as
+poucas que interessam via anulação por deck (abaixo), que também limpa a
+marca de incerteza para essa carta. É o mesmo princípio do estado `review`
+na checklist de bracket (§6.1): onde a app não sabe, diz que não sabe.
+
 | Papel | Tags | Alvo de referência |
 |---|---|---|
 | Fontes de mana | `mana-rock`, `utility-mana-rock`, `mana-rock-with-set-s-mechanic`, `mana-dork`, `mana-dork-egg`, `ritual`, `ritual-untap` | — (informativo, soma-se a terrenos) |
@@ -554,7 +569,8 @@ esse é o resultado correto, não motivo para subir o número.
 guardados", ao lado de "Ver cartas" — computado sob demanda (mais trabalho
 por deck que a legalidade do §7.0, que corre sempre). Cada contagem é um
 botão que expande a lista de cartas que a compõe. Texto simples, sem
-gráficos.
+gráficos. Uma carta classificada com incerteza (acima) aparece marcada nessa
+lista — não some dentro da contagem como se fosse uma classificação normal.
 
 Testado contra o Limit Break real: 37 terrenos, 41 fontes de mana, ramp 11,
 draw 12, remoção 9, proteção 8, disrupção 0, interação/resposta 3, fecho de
