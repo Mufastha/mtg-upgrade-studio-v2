@@ -489,31 +489,58 @@ dois, é Interação/Resposta. Confirmado até na própria carta *Fog*: já tem
 `protects-planeswalker` da Scryfall. O papel decide-se pelas outras tags da
 carta, nunca pela tag de fog isolada.
 
-**A fiabilidade de uma família de tags não é uma lista fixa — é um teste
-mecânico sobre o catálogo.** Para cada família de `oracle_tags`, olha-se
-como as cartas do catálogo que a têm se distribuem pelos papéis desta
-tabela: se convergem num papel, a tag classifica sozinha; se se espalham
-por vários, não classifica com confiança e a carta fica marcada como
-incerta (abaixo). `fog`/`fog-selective`/`pseudo-fog`, prefixo `hate-` e
-prefixo `protects-` são os que já correram este teste — três cartas, três
-papéis, no caso do fog. O Tagger tem centenas de famílias; avaliámos meia
-dúzia. Estas são **exemplos do critério, não a lista completa** — uma
-família nunca avaliada não se presume fiável nem dispersa, corre-se o
-teste.
+**A fiabilidade de uma tag não é uma lista fixa — é um teste mecânico sobre
+o catálogo.** Para cada `oracle_tag`, olha-se como as cartas do catálogo que
+a têm se distribuem pelos papéis desta tabela: se convergem num papel, a
+tag classifica sozinha; se se espalham por vários, não classifica com
+confiança e a carta fica marcada como incerta (abaixo).
+
+**A unidade de análise é a tag exata, nunca o prefixo partilhado.** Corrido
+o teste sobre o catálogo todo (31 830 cartas, 30 636 não-terreno, 2 de
+setembro de 2026): tags com o mesmo prefixo divergem tanto quanto tags sem
+nada em comum. `fog` sozinha converge (97% Proteção, n=35); `pseudo-fog`,
+mesmo "família" no sentido de nome, dispersa (35% no papel mais comum,
+n=74). `burn-creature` e `burn-any` convergem quase 100% em Remoção;
+`burn-player` e `burn-you`, mesmo prefixo `burn-`, ficam abaixo de 40% —
+queimam o jogador, não uma permanente, e "remoção" aqui não se aplica.
+Agrupar por prefixo serve só para organizar a leitura de muitas tags de
+uma vez; nunca é a decisão. O Tagger tem centenas (milhares, contando
+variações por edição/set) de tags; o teste já correu sobre todo o
+catálogo uma vez — nenhuma tag fica por avaliar por preguiça, mas os
+resultados ainda não fixaram um limiar de "quão concentrada chega".
 
 A distinção **função vs forma** usada para explicar isto é conceptual, um
 atalho para o Diogo perceber o critério — não é algoritmo, e o código nunca
 tenta aplicá-la carta a carta ("esta tag descreve forma"). A decisão vem
-sempre da distribuição medida no catálogo, por família, nunca de uma lista
-de nomes de tags escritos à mão.
+sempre da distribuição medida no catálogo, por tag, nunca de uma lista de
+nomes escritos à mão.
 
-Quando uma carta só tem tags de famílias marcadas como dispersas (ou
-nenhuma tag aplicável), o classificador coloca-a no papel mais provável
-**marcada como incerta**, visível como tal — nunca classificada em
-silêncio. O Diogo corrige as poucas que interessam via anulação por deck
-(abaixo), que também limpa a marca de incerteza para essa carta. É o mesmo
-princípio do estado `review` na checklist de bracket (§6.1): onde a app não
-sabe, diz que não sabe.
+**"Sem papel" tem duas causas distintas, e só uma é um problema.** Quando
+uma carta com uma tag dispersa não cai em nenhum papel, ou é (a) **lacuna
+nossa** — a carta tem outra tag com sinal forte que a tabela ainda não
+incorporou — ou (b) **legitimamente sem papel** — nenhuma das suas tags
+aponta para nenhum dos 8 papéis, é uma carta genérica (corpo vanilla,
+efeito fora do âmbito destes papéis). Medido sobre `synergy-*`: das 3 328
+cartas sem papel, só 423 são lacuna (têm outra tag com sinal ≥50% não
+incorporado, ex. `hate-flying`, `flicker-creature`); as outras 2 905 são
+legitimamente sem papel. Uma família não perde pontos de fiabilidade por
+conter a segunda categoria — só a primeira aponta para uma tabela
+incompleta.
+
+**Reprovar no teste de dispersão significa "não classifica papel sozinha",
+nunca "é inútil".** `synergy-*` dispersa como classificador de papel (14%
+no topo, maioria sem papel) mas é exatamente a família que semeia o plano
+de jogo do commander (§7.2) — outra função, sobreposição de tags com o
+plano, não classificação de papel. As duas coisas usam o mesmo tipo de
+dado (`oracle_tags`) para perguntas diferentes; falhar uma não diz nada
+sobre a outra.
+
+Quando uma carta só tem tags dispersas (ou nenhuma tag aplicável), o
+classificador coloca-a no papel mais provável **marcada como incerta**,
+visível como tal — nunca classificada em silêncio. O Diogo corrige as
+poucas que interessam via anulação por deck (abaixo), que também limpa a
+marca de incerteza para essa carta. É o mesmo princípio do estado `review`
+na checklist de bracket (§6.1): onde a app não sabe, diz que não sabe.
 
 | Papel | Tags | Alvo de referência |
 |---|---|---|
