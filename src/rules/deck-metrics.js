@@ -39,6 +39,10 @@ const RAMP_TAGS = new Set([
   'tutor-land-to-battlefield',
 ]);
 
+// curiosity e wheel-symmetrical entraram pelo mesmo teste (2 de setembro
+// de 2026) - curiosity-like, apesar do nome parecido, dispersa (16%) e
+// ficou de fora; wheel-one-sided (60%, n=85) ficou pendente, amostra
+// suficiente mas abaixo do limiar de confiança, decisão do Diogo.
 const DRAW_TAGS = new Set([
   'draw-engine',
   'repeatable-pure-draw',
@@ -51,11 +55,23 @@ const DRAW_TAGS = new Set([
   'repeatable-draw',
   'repeatable-loot',
   'loot',
+  'curiosity',
+  'wheel-symmetrical',
 ]);
 
 // Remoção = respostas permanentes/duras (destroy, exile, sacrifice forçado,
 // fight, sweepers). Bounce e tuck saíram daqui - ver INTERACTION_TAGS: um
 // efeito temporário (a carta pode voltar) não é a mesma coisa que remover.
+//
+// burn-any/burn-creature/burn-planeswalker/burn-with-set-s-mechanic,
+// bombard, banish e lockdown-creature entraram depois do teste de
+// convergência sobre o catálogo real (2 de setembro de 2026, ver §7.1 da
+// especificação) - por tag exata, nunca por prefixo: burn-player e
+// burn-you, mesmo prefixo "burn-", ficaram de fora por dispersarem sob
+// 40% (queimam o jogador, não uma permanente). burn-self e bombard-self
+// também ficaram de fora, mas por razão diferente - queimar as próprias
+// criaturas não remove nada do adversário, não é remoção por definição,
+// não só por amostra.
 const REMOVAL_TAGS = new Set([
   'spot-removal',
   'removal-creature',
@@ -83,6 +99,13 @@ const REMOVAL_TAGS = new Set([
   'sweeper',
   'sweeper-one-sided',
   'sweeper-graveyard',
+  'burn-any',
+  'burn-creature',
+  'burn-planeswalker',
+  'burn-with-set-s-mechanic',
+  'bombard',
+  'banish',
+  'lockdown-creature',
 ]);
 
 // Proteger o que já tens em jogo (teu, não o do adversário).
@@ -95,6 +118,11 @@ const PROTECTION_EXTRA_TAGS = new Set(['gives-protection', 'gains-protection']);
 // a métrica lê o que está no deck, não presume a partir da identidade de
 // cor. A raridade fora de azul é um facto sobre o deck, não sobre a regra.
 const DISRUPTION_TAG_PREFIXES = ['counterspell'];
+// lockdown-land entrou apesar de n=10 (abaixo do limiar de amostra usado
+// para as outras adições de hoje) porque a razão não é estatística: é a
+// mesma família conceptual do mass-land-denial já presente aqui, e liga
+// diretamente à checklist de bracket (§6) - decisão por categoria, não
+// por concentração.
 const DISRUPTION_EXACT_TAGS = new Set([
   'discard',
   'cost-increaser',
@@ -104,12 +132,16 @@ const DISRUPTION_EXACT_TAGS = new Set([
   'prevent-cast',
   'stasis',
   'mass-land-denial',
+  'lockdown-land',
 ]);
 
 // Responder ao adversário sem remover nem proteger: tap em massa, bounce,
 // tuck. "tapper-*" é a família verificada com o Aether Shockwave.
+// freeze-creature entrou pelo teste de 2 de setembro de 2026 (84%,
+// n=171); as tags-irmãs freeze-artifact/freeze-nonland/freeze-permanent-any
+// ficaram de fora por amostra pequena (n<25), freeze-land por dispersar.
 const INTERACTION_TAG_PREFIXES = ['tapper-'];
-const INTERACTION_EXACT_TAGS = new Set(['removal-bounce', 'removal-tuck']);
+const INTERACTION_EXACT_TAGS = new Set(['removal-bounce', 'removal-tuck', 'freeze-creature']);
 
 // Fecho de jogo: ganha o jogo por si só, fora do dano de combate normal. Só
 // "alternate-win-condition" por agora (Fase 5: + combos do Commander
@@ -165,23 +197,100 @@ function classifyRoles(tags) {
   };
 }
 
+// Tags já estabelecidas acima (mesmo por prefixo) - excluídas do cálculo de
+// sugestões porque testá-las contra si próprias é tautológico.
+const ESTABLISHED_TAGS = new Set([
+  ...RAMP_TAGS,
+  ...DRAW_TAGS,
+  ...REMOVAL_TAGS,
+  ...PROTECTION_EXTRA_TAGS,
+  ...DISRUPTION_EXACT_TAGS,
+  ...INTERACTION_EXACT_TAGS,
+  ...CLOSER_TAGS,
+  ...AMPLIFIER_TAGS,
+]);
+const ESTABLISHED_PREFIXES = [...PROTECTION_TAG_PREFIXES, ...DISRUPTION_TAG_PREFIXES, ...INTERACTION_TAG_PREFIXES];
+function isEstablishedTag(tag) {
+  return ESTABLISHED_TAGS.has(tag) || ESTABLISHED_PREFIXES.some((p) => tag.startsWith(p));
+}
+
+// Sugestão automática de papel para uma carta sem nenhuma tag estabelecida
+// (§7.1: "sem papel" tem duas causas, isto cobre a lacuna, nunca a
+// legítima). Limiares fixados a partir do teste de convergência corrido
+// sobre o catálogo real (2 de setembro de 2026, ver especificação): todas
+// as adições aprovadas hoje tinham n>=100 e concentração >=88%; todas as
+// rejeitadas por amostra tinham n<25. wheel-one-sided (n=85, 60%) ficou de
+// propósito fora do limiar - amostra suficiente, concentração insuficiente,
+// decisão pendente do Diogo. Cartas cuja tag não bate este limiar ficam
+// legitimamente sem papel, sem sugestão nenhuma - nunca um palpite fraco.
+const HINT_MIN_SAMPLE = 25;
+const HINT_MIN_SHARE = 0.8;
+
+const hintCache = new WeakMap();
+function buildTagRoleHints(cardsByOracleId) {
+  const cached = hintCache.get(cardsByOracleId);
+  if (cached) return cached;
+
+  const tagStats = new Map();
+  for (const card of cardsByOracleId.values()) {
+    if (card.type_line.includes('Land')) continue;
+    const roles = classifyRoles(card.oracle_tags);
+    for (const tag of card.oracle_tags) {
+      if (isEstablishedTag(tag)) continue;
+      if (!tagStats.has(tag)) {
+        tagStats.set(tag, { n: 0, roleCounts: Object.fromEntries(ROLE_KEYS.map((r) => [r, 0])) });
+      }
+      const stats = tagStats.get(tag);
+      stats.n += 1;
+      for (const role of ROLE_KEYS) if (roles[role]) stats.roleCounts[role] += 1;
+    }
+  }
+
+  const hints = new Map();
+  for (const [tag, stats] of tagStats) {
+    if (stats.n < HINT_MIN_SAMPLE) continue;
+    let topRole = null;
+    let topCount = 0;
+    for (const role of ROLE_KEYS) {
+      if (stats.roleCounts[role] > topCount) {
+        topRole = role;
+        topCount = stats.roleCounts[role];
+      }
+    }
+    const share = stats.n > 0 ? topCount / stats.n : 0;
+    if (topRole && share >= HINT_MIN_SHARE) hints.set(tag, { role: topRole, share });
+  }
+
+  hintCache.set(cardsByOracleId, hints);
+  return hints;
+}
+
 // Aplica anulações por deck (guardadas em deck.role_overrides, ver
 // decklist.js: setRoleOverride) por cima da classificação automática.
-// action "add": a carta conta para o papel mesmo sem a tag. action
-// "remove": a carta NÃO conta para o papel apesar da tag. Nunca muda a
-// regra global - só o que está guardado com este deck.
+// action "add": a carta conta para o papel mesmo sem tag estabelecida, e
+// fica marcada como confirmada mesmo que já lá estivesse como incerta.
+// action "confirm": só limpa a marca de incerteza, sem mudar inclusão -
+// para o caso em que a sugestão automática já está certa. action
+// "remove": a carta NÃO conta para o papel apesar da tag/sugestão. Nunca
+// muda a regra global - só o que está guardado com este deck.
 function applyOverrides(autoRoleCards, overrides, qtyByOracleId, cardsByOracleId) {
   if (!overrides || overrides.length === 0) return autoRoleCards;
   const result = {};
-  for (const [role, list] of Object.entries(autoRoleCards)) result[role] = [...list];
+  for (const [role, list] of Object.entries(autoRoleCards)) result[role] = list.map((e) => ({ ...e }));
   for (const o of overrides) {
     const list = result[o.role];
     if (!list) continue;
     const idx = list.findIndex((e) => e.oracle_id === o.oracle_id);
-    if (o.action === 'add' && idx === -1) {
-      const card = cardsByOracleId.get(o.oracle_id);
-      const qty = qtyByOracleId.get(o.oracle_id) ?? 1;
-      if (card) list.push({ oracle_id: o.oracle_id, name: card.name, quantity: qty });
+    if (o.action === 'add') {
+      if (idx === -1) {
+        const card = cardsByOracleId.get(o.oracle_id);
+        const qty = qtyByOracleId.get(o.oracle_id) ?? 1;
+        if (card) list.push({ oracle_id: o.oracle_id, name: card.name, quantity: qty, uncertain: false });
+      } else {
+        list[idx].uncertain = false;
+      }
+    } else if (o.action === 'confirm' && idx !== -1) {
+      list[idx].uncertain = false;
     } else if (o.action === 'remove' && idx !== -1) {
       list.splice(idx, 1);
     }
@@ -197,6 +306,7 @@ export function computeDeckMetrics(deckCards, cardsByOracleId, overrides = []) {
   const curveCards = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], '7+': [] };
   const tagHistogram = new Map();
   const qtyByOracleId = new Map(deckCards.map((dc) => [dc.oracle_id, dc.quantity]));
+  const hints = buildTagRoleHints(cardsByOracleId);
 
   for (const dc of deckCards) {
     const card = cardsByOracleId.get(dc.oracle_id);
@@ -218,8 +328,24 @@ export function computeDeckMetrics(deckCards, cardsByOracleId, overrides = []) {
     if (hasAny(tags, MANA_SOURCE_TAGS)) nonLandManaSourceCards.push(entry);
 
     const roles = classifyRoles(tags);
+    let hasEstablishedRole = false;
     for (const [role, included] of Object.entries(roles)) {
-      if (included) autoRoleCards[role].push(entry);
+      if (included) {
+        autoRoleCards[role].push({ ...entry, uncertain: false });
+        hasEstablishedRole = true;
+      }
+    }
+
+    // Sem nenhuma tag estabelecida: procura a sugestão mais forte entre as
+    // outras tags da carta, marcada como incerta - nunca em silêncio
+    // (§7.1). Sem sugestão que bata o limiar, fica legitimamente sem papel.
+    if (!hasEstablishedRole) {
+      let bestHint = null;
+      for (const tag of tags) {
+        const hint = hints.get(tag);
+        if (hint && (!bestHint || hint.share > bestHint.share)) bestHint = hint;
+      }
+      if (bestHint) autoRoleCards[bestHint.role].push({ ...entry, uncertain: true });
     }
   }
 

@@ -299,7 +299,7 @@ deck {
     name,                    // nome legível do precon, mostrado na lista de decks
     base_cards: [oracle_id]  // as 100 cartas originais da lista do produto
   } | null,
-  role_overrides: [{oracle_id, role, action: "add"|"remove"}]  // §7.1, opcional
+  role_overrides: [{oracle_id, role, action: "add"|"remove"|"confirm"}]  // §7.1, opcional
 }
 ```
 
@@ -542,19 +542,58 @@ poucas que interessam via anulação por deck (abaixo), que também limpa a
 marca de incerteza para essa carta. É o mesmo princípio do estado `review`
 na checklist de bracket (§6.1): onde a app não sabe, diz que não sabe.
 
+**Limiares da sugestão incerta, fixados a partir do teste de 2 de setembro
+de 2026:** uma tag só gera sugestão (papel mais provável, marcado incerto)
+com **n ≥ 25 cartas de amostra e ≥ 80% de concentração num só papel**.
+Abaixo disso, a carta fica legitimamente sem papel, sem sugestão — um
+palpite fraco (amostras de 6 a 21, como se viu com `banish-graveyard` ou
+`freeze-artifact`) é pior do que nenhum. Todas as adições aprovadas hoje
+tinham n≥100 e concentração ≥88%, bem acima do limiar; as rejeitadas por
+amostra tinham todas n<25. `src/rules/deck-metrics.js` calcula isto uma vez
+por catálogo carregado (não por deck), a partir das cartas não-terreno,
+excluindo tags já estabelecidas (testá-las contra si próprias é
+tautológico).
+
 | Papel | Tags | Alvo de referência |
 |---|---|---|
 | Fontes de mana | `mana-rock`, `utility-mana-rock`, `mana-rock-with-set-s-mechanic`, `mana-dork`, `mana-dork-egg`, `ritual`, `ritual-untap` | — (informativo, soma-se a terrenos) |
 | Ramp | fontes de mana + `ramp`, `ramp-with-set-s-mechanic`, `land-ramp`, `multi-land-ramp`, `combat-ramp`, `tutor-land-to-battlefield` | 8 |
-| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw`, `impulsive-draw`, `repeatable-draw`, `repeatable-loot`, `loot` | 8 |
-| Remoção | `spot-removal`, `removal-creature/destroy/exile/toughness/nonland/sacrifice/artifact/land/enchantment/permanent/planeswalker/fight/aura/equipment/noncreature/vehicle/battle/nonenchantment/spacecraft`, `swap-removal`, `repeatable-removal`, `sweeper*` — respostas **permanentes/duras** | 8 |
+| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw`, `impulsive-draw`, `repeatable-draw`, `repeatable-loot`, `loot`, `curiosity`, `wheel-symmetrical` | 8 |
+| Remoção | `spot-removal`, `removal-creature/destroy/exile/toughness/nonland/sacrifice/artifact/land/enchantment/permanent/planeswalker/fight/aura/equipment/noncreature/vehicle/battle/nonenchantment/spacecraft`, `swap-removal`, `repeatable-removal`, `sweeper*`, `burn-any`, `burn-creature`, `burn-planeswalker`, `burn-with-set-s-mechanic`, `bombard`, `banish`, `lockdown-creature` — respostas **permanentes/duras** | 8 |
 | Proteção | prefixo `protects-`, `gives-protection`, `gains-protection` — proteger o que já tens em jogo | 3 |
-| Disrupção | prefixo `counterspell`, `discard`, `cost-increaser`, `cast-tax`, `tax-attack`, `tax-block`, `prevent-cast`, `stasis`, `mass-land-denial` — negar recursos/ações ao adversário | 2 |
-| Interação/Resposta | `removal-bounce`, `removal-tuck`, prefixo `tapper-` — responder sem remover nem proteger (tap em massa, bounce, tuck) | 2 |
+| Disrupção | prefixo `counterspell`, `discard`, `cost-increaser`, `cast-tax`, `tax-attack`, `tax-block`, `prevent-cast`, `stasis`, `mass-land-denial`, `lockdown-land` — negar recursos/ações ao adversário | 2 |
+| Interação/Resposta | `removal-bounce`, `removal-tuck`, `freeze-creature`, prefixo `tapper-` — responder sem remover nem proteger (tap em massa, bounce, tuck) | 2 |
 | Fecho de jogo | só `alternate-win-condition` — único sinal explícito da Scryfall para "ganha o jogo fora do combate normal"; não existe tag genérica "finisher"/"wincon". Fase 5: + combos do Commander Spellbook cujo resultado seja dano/vida em massa ou "win the game" (§12) | 1 |
 | Amplificadores | `extra-combat-phase` (fase de combate — não confundir com turno extra, critério diferente da checklist de bracket, §6), `anthem` (+X/+X real; `keyword-anthem`, que só concede keywords, fica de fora), `storm-like`, `storm-count-matters` — acelera um plano já existente, não fecha nada por si | 2 |
 
 Terrenos: 36.
+
+**Adições de 2 de setembro de 2026**, por tag exata (nunca por prefixo — ver
+acima), a partir do teste de convergência sobre o catálogo real:
+`burn-any` (100%, n=797), `burn-creature` (100%, n=961), `burn-planeswalker`
+(93%, n=339), `burn-with-set-s-mechanic` (93%, n=262), `bombard` (91%,
+n=102), `banish` (100%, n=100) e `lockdown-creature` (97%, n=104) em
+Remoção; `freeze-creature` (84%, n=171) em Interação/Resposta; `curiosity`
+(94%, n=241) e `wheel-symmetrical` (100%, n=35) em Draw; `lockdown-land`
+(70%, n=10, exceção — decisão por categoria: é da família do
+`mass-land-denial` já presente aqui e liga à checklist de bracket, §6, não
+por concentração). `burn-self` e `bombard-self` ficaram de fora por razão
+conceptual, não de amostra: queimar as próprias criaturas não remove nada
+do adversário.
+
+**Revisão futura** — tags-irmãs do mesmo prefixo que dispersaram só por
+amostra pequena (n<25), a reavaliar quando o catálogo crescer, nunca
+promovidas sem voltar a medir: `lockdown-artifact` (n=15), `lockdown-permanent`
+(n=3), `banish-graveyard` (n=6), `banish-hand` (n=12, pode ser Disrupção —
+"exilar temporariamente da mão" —, amostra pequena demais para decidir),
+`freeze-artifact` (n=9), `freeze-nonland` (n=6), `freeze-permanent-any`
+(n=6), `freeze-land` (n=10), `wheel-symmetrical-optional` (n=10),
+`burn-bright-with-set-mechanic` (n=21). `wheel-one-sided` (60%, n=85) tem
+amostra suficiente mas ficou pendente — ver abaixo, decisão ainda por
+tomar com a lista de cartas em mãos. `burn-player`, `burn-you` e
+`curiosity-like` têm amostra grande (784, 104, 74) e dispersão real, não de
+amostra — confirmados como não-classificadores, não entram nesta lista de
+revisão.
 
 **Um papel nunca é uma regra sobre a cor do deck.** `Mana Tithe`, `Rebuff
 the Wicked`, `Dawn Charm` e `Lapse of Certainty` são brancas e têm
@@ -575,7 +614,10 @@ Break; o problema era a agregação em si, não os baldes.
 Os alvos e as tags acima são a regra **global**. Quando o Diogo discordar de
 uma carta específica num deck específico, pode mover ou duplicar essa carta
 para outros baldes — só naquele deck, sem tocar na regra global. Guardado em
-`deck.role_overrides: [{oracle_id, role, action: "add"|"remove"}]`.
+`deck.role_overrides: [{oracle_id, role, action: "add"|"remove"|"confirm"}]`.
+`"confirm"` é o terceiro estado: limpa a marca de incerteza de uma sugestão
+automática já correta, sem mudar a inclusão — para quando o palpite estava
+certo e só falta o Diogo validá-lo.
 
 Se a mesma anulação se repetir em vários decks, é sinal de que a regra
 global está errada e deve ser corrigida em `deck-metrics.js`, não empilhada
@@ -805,6 +847,13 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   Break real: 37 terrenos, 41 fontes de mana, ramp 11, draw 12, remoção 9,
   proteção 8, disrupção 0, interação/resposta 3, fecho de jogo 1,
   amplificadores 1 — falta disrupção e amplificadores, um resultado real.
+  **Revisto de novo em 2 de setembro de 2026:** teste de convergência
+  corrido sobre o catálogo real, 11 tags novas incorporadas por tag exata
+  (não prefixo) com amostra de cartas validada, mecanismo de sugestão
+  incerta implementado (n≥25, ≥80% concentração) com terceiro estado de
+  anulação `"confirm"`. Resultados do Limit Break inalterados (nenhuma tag
+  nova calhou nas cartas deste deck) — validado por regressão, não só por
+  inspeção.
 - Formulário de perfil declarado (§7.2)
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)

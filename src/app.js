@@ -253,9 +253,12 @@ function setupDeckView(cards) {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((e) => {
         const qty = e.quantity > 1 ? `${e.quantity}x ` : '';
-        const label = `${qty}${escapeHtml(e.name)}`;
+        // Sugestão automática incerta (§7.1) - marcada com "?", nunca igual
+        // a uma classificação confirmada.
+        const label = `${qty}${escapeHtml(e.name)}${e.uncertain ? ' ?' : ''}`;
+        const titleAttr = e.uncertain ? ' title="Sugestão automática por semelhança de tags — não confirmada"' : '';
         return editableRole
-          ? `<button type="button" class="carta-papel" data-action="editar-papel" data-deck-id="${deckId}" data-oracle-id="${e.oracle_id}">${label}</button>`
+          ? `<button type="button" class="carta-papel"${titleAttr} data-action="editar-papel" data-deck-id="${deckId}" data-oracle-id="${e.oracle_id}">${label}</button>`
           : label;
       })
       .join(editableRole ? ' ' : ', ');
@@ -337,26 +340,55 @@ function setupDeckView(cards) {
       const oracleId = btn.dataset.oracleId;
       const card = cardsByOracleId.get(oracleId);
       const m = buildDeckMetrics(deckId, decks, deckCards, cardsByOracleId);
-      const currentRoles = ROLE_KEYS.filter((k) => m.roleCards[k].some((e) => e.oracle_id === oracleId));
-      const autoRoles = ROLE_KEYS.filter((k) => m.autoRoleCards[k].some((e) => e.oracle_id === oracleId));
+
+      // Estado atual por papel: "ausente" | "confirmado" | "incerto"
+      // (sugestão automática por semelhança de tags, ainda não validada -
+      // §7.1). O prompt mostra "incerto" com um sufixo próprio para que
+      // reescrever sem ele sirva de confirmação, não só de "sem mudança".
+      const currentState = {};
+      for (const k of ROLE_KEYS) {
+        const entry = m.roleCards[k].find((e) => e.oracle_id === oracleId);
+        currentState[k] = entry ? (entry.uncertain ? 'incerto' : 'confirmado') : 'ausente';
+      }
+      const currentLabels = ROLE_KEYS.filter((k) => currentState[k] !== 'ausente').map((k) =>
+        currentState[k] === 'incerto' ? `${ROLE_LABELS[k]} (incerto)` : ROLE_LABELS[k]
+      );
       const labelList = ROLE_KEYS.map((k) => ROLE_LABELS[k]).join(', ');
       const input = window.prompt(
-        `Papéis de "${card?.name}" neste deck (separa por vírgula) — apaga/acrescenta para corrigir:\n${labelList}`,
-        currentRoles.map((k) => ROLE_LABELS[k]).join(', ')
+        `Papéis de "${card?.name}" neste deck (separa por vírgula) — apaga/acrescenta para corrigir.\n` +
+          `"(incerto)" é uma sugestão automática, não confirmada — escreve o nome sem isso para confirmar.\n${labelList}`,
+        currentLabels.join(', ')
       );
       if (input == null) return; // cancelado
-      const desired = new Set(
-        input
-          .split(',')
-          .map((s) => s.trim().toLowerCase())
-          .filter(Boolean)
-      );
+
+      const desiredConfirmed = new Set();
+      const desiredUncertain = new Set();
+      for (const rawToken of input.split(',')) {
+        const token = rawToken.trim();
+        if (!token) continue;
+        const isUncertainToken = /\(incerto\)\s*$/i.test(token);
+        const plain = token.replace(/\(incerto\)\s*$/i, '').trim().toLowerCase();
+        const role = ROLE_KEYS.find((k) => ROLE_LABELS[k].toLowerCase() === plain);
+        if (!role) continue;
+        if (isUncertainToken) desiredUncertain.add(role);
+        else desiredConfirmed.add(role);
+      }
+
       for (const role of ROLE_KEYS) {
-        const included = desired.has(ROLE_LABELS[role].toLowerCase());
-        const wasIncluded = currentRoles.includes(role);
-        if (included !== wasIncluded) {
-          await setRoleOverride(deckId, oracleId, role, included, autoRoles.includes(role));
+        const state = currentState[role];
+        const wantConfirmed = desiredConfirmed.has(role);
+        const wantUncertain = !wantConfirmed && desiredUncertain.has(role);
+
+        if (!wantConfirmed && !wantUncertain && state !== 'ausente') {
+          await setRoleOverride(deckId, oracleId, role, 'remove');
+        } else if (wantConfirmed && state !== 'confirmado') {
+          await setRoleOverride(deckId, oracleId, role, 'add');
+        } else if (wantUncertain && state === 'ausente') {
+          // Pedir "incerto" para um papel sem sugestão automática não faz
+          // sentido - trata-se como confirmação direta.
+          await setRoleOverride(deckId, oracleId, role, 'add');
         }
+        // wantUncertain && state === 'incerto': igual ao que já estava, sem anulação.
       }
       await refresh();
       return;

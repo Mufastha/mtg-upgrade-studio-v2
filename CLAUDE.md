@@ -75,7 +75,13 @@ Fase 2 (análise de deck) por começar, exceto duas partes já feitas — ver
   cartas do catálogo com essa tag se distribuem pelos papéis — converge
   numa, classifica; espalha-se, não classifica), não por lista fixa; sem
   métrica agregada a somar baldes; anulação por deck quando o Diogo
-  discorda da classificação global.
+  discorda da classificação global. **Revista de novo em 2 de setembro de
+  2026:** teste de convergência corrido sobre o catálogo todo, 11 tags
+  novas incorporadas por tag exata (nunca prefixo), mecanismo de sugestão
+  incerta implementado (`buildTagRoleHints` em `deck-metrics.js`, n≥25 e
+  ≥80% de concentração) com terceiro estado de anulação `"confirm"` (limpa
+  a incerteza sem mudar a inclusão). Testado contra o catálogo real e o
+  Limit Break — ver §11 da especificação.
 
 Depois de aceite, a Fase 1 recebeu uma ronda de correções vindas de uso
 real: visualizador de coleção e de decks guardados (pesquisa, paginação,
@@ -85,24 +91,8 @@ falhas do importador da ManaBox deixou de depender da rede em tempo real
 para explicar um erro (violava a invariante 10); a razão vem agora de
 `excluded.json`, gerado na build.
 
-**Decidido mas ainda por implementar** (documentado em §7.1/§7.2/§8/§6.4 da
+**Decidido mas ainda por implementar** (documentado em §7.2/§8/§6.4 da
 especificação, para retomar em código sem re-discutir):
-- Uma tag só classifica sozinha se as cartas do catálogo que a têm
-  convergirem num papel; espalhada por vários papéis, é dispersa e não
-  classifica. **A unidade de análise é a tag exata, nunca o prefixo
-  partilhado** — corrido o teste sobre o catálogo todo (31 830 cartas, 2 de
-  setembro de 2026), `burn-creature`/`burn-any` convergem quase 100% em
-  Remoção mas `burn-player`/`burn-you`, mesmo prefixo, ficam abaixo de 40%;
-  `fog` converge (97%) mas `pseudo-fog` dispersa (35%). Cartas que só têm
-  tags dispersas ficam marcadas como incertas em vez de classificadas em
-  silêncio (§7.1). "Sem papel" tem duas causas — lacuna nossa (a carta tem
-  outra tag com sinal, ainda não incorporada) vs legitimamente sem papel
-  (carta genérica) — só a primeira é problema. Reprovar no teste de
-  dispersão significa "não classifica papel", nunca "inútil": `synergy-*`
-  dispersa mas é a família que semeia o plano de jogo do §7.2, uma função
-  diferente. A distinção "função vs forma" é só um atalho conceptual para
-  explicar o critério; o código nunca a aplica carta a carta, só a
-  distribuição medida.
 - O plano de jogo do commander (§7.2) — semeado das `oracle_tags` do
   commander — substitui os alvos fixos como motor de recomendação: o §8
   passa a pontuar cada carta do deck e cada candidata pelo mesmo score de
@@ -115,20 +105,11 @@ especificação, para retomar em código sem re-discutir):
   `group_interpretation` dentro de `bracket-rules.json` (§6.4), marcadas
   como leitura do grupo, não regra oficial.
 
-**Primeiro passo da próxima sessão, antes de tocar no código do §7.2:** o
-teste de convergência/dispersão já correu sobre o catálogo todo (2 de
-setembro de 2026) — falta só a decisão do Diogo sobre duas coisas
-pendentes, ainda sem resposta:
-- Que tags individuais (não prefixos — ver acima) entram na tabela do
-  §7.1, a partir da proposta apresentada com amostra de cartas por tag
-  (`burn-any`, `burn-creature`, `burn-planeswalker`,
-  `burn-with-set-s-mechanic`, `burn-self`, `bombard`, `bombard-self`,
-  `banish`, `lockdown-creature` para Remoção; `freeze-creature` para
-  Interação; `curiosity`, `wheel-symmetrical` para Draw — várias outras
-  tags-irmãs do mesmo prefixo ficaram de fora por dispersarem, ex.
-  `burn-player`/`burn-you`/`curiosity-like`).
-- O limiar de "quão concentrada chega para classificar sozinha" — só depois
-  disto se passa ao código do §7.2.
+**Um item do §7.1 continua pendente, não bloqueia o §7.2:** `wheel-one-sided`
+(60% Draw, n=85 — amostra suficiente, mas o Diogo pediu para ver a lista de
+cartas antes de decidir se entra na tabela). A lista foi apresentada; falta
+só a decisão. Não afeta o resto — pode ser resolvido em qualquer altura, é
+independente do trabalho do §7.2.
 
 Dois decks de validação, com papéis diferentes (ver §11 da especificação):
 - **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
