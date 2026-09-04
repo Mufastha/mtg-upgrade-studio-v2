@@ -81,7 +81,18 @@ Fase 2 (análise de deck) por começar, exceto duas partes já feitas — ver
   incerta implementado (`buildTagRoleHints` em `deck-metrics.js`, n≥25 e
   ≥80% de concentração) com terceiro estado de anulação `"confirm"` (limpa
   a incerteza sem mudar a inclusão). Testado contra o catálogo real e o
-  Limit Break — ver §11 da especificação.
+  Limit Break — ver §11 da especificação. **Revista uma terceira vez em 5
+  de setembro de 2026:** Draw estava a contar `impulsive-draw` e as duas
+  tags-irmãs (exílio-e-jogar, nunca chega à mão) — erro da tabela
+  original, corrigido; Draw do Limit Break passa de 12 para 9. Essas três
+  tags formam sozinhas o novo 9º papel, **Acesso Temporário** (alvo 2,
+  tentativo) — testados e rejeitados como candidatos ao mesmo papel:
+  `cost-reducer`, `gives-haste` (armadilha de nome — subproduto de roubo/
+  reanimação, não "haste em massa"), `extra-land`/`play-additional-land`,
+  `ritual`/`ritual-untap` (0–8% de sobreposição com as três, todos já bem
+  servidos noutros papéis). `wheel-one-sided` excluído (26 de 85 cartas
+  dependiam só dela, não compensa confirmar oracle_text carta a carta) e
+  registado na lista de revisão futura do §7.1.
 
 Depois de aceite, a Fase 1 recebeu uma ronda de correções vindas de uso
 real: visualizador de coleção e de decks guardados (pesquisa, paginação,
@@ -104,12 +115,6 @@ especificação, para retomar em código sem re-discutir):
   commander, limiar de mana de combo precoce) ficam em
   `group_interpretation` dentro de `bracket-rules.json` (§6.4), marcadas
   como leitura do grupo, não regra oficial.
-
-**Um item do §7.1 continua pendente, não bloqueia o §7.2:** `wheel-one-sided`
-(60% Draw, n=85 — amostra suficiente, mas o Diogo pediu para ver a lista de
-cartas antes de decidir se entra na tabela). A lista foi apresentada; falta
-só a decisão. Não afeta o resto — pode ser resolvido em qualquer altura, é
-independente do trabalho do §7.2.
 
 Dois decks de validação, com papéis diferentes (ver §11 da especificação):
 - **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.

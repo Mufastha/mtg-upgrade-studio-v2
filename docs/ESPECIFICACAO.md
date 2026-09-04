@@ -519,8 +519,10 @@ nomes escritos à mão.
 uma carta com uma tag dispersa não cai em nenhum papel, ou é (a) **lacuna
 nossa** — a carta tem outra tag com sinal forte que a tabela ainda não
 incorporou — ou (b) **legitimamente sem papel** — nenhuma das suas tags
-aponta para nenhum dos 8 papéis, é uma carta genérica (corpo vanilla,
-efeito fora do âmbito destes papéis). Medido sobre `synergy-*`: das 3 328
+aponta para nenhum dos papéis desta tabela, é uma carta genérica (corpo
+vanilla, efeito fora do âmbito destes papéis). Medido sobre `synergy-*`
+(2 de setembro de 2026, sobre os 8 papéis de então — antes do Acesso
+Temporário abaixo): das 3 328
 cartas sem papel, só 423 são lacuna (têm outra tag com sinal ≥50% não
 incorporado, ex. `hate-flying`, `flicker-creature`); as outras 2 905 são
 legitimamente sem papel. Uma família não perde pontos de fiabilidade por
@@ -558,13 +560,14 @@ tautológico).
 |---|---|---|
 | Fontes de mana | `mana-rock`, `utility-mana-rock`, `mana-rock-with-set-s-mechanic`, `mana-dork`, `mana-dork-egg`, `ritual`, `ritual-untap` | — (informativo, soma-se a terrenos) |
 | Ramp | fontes de mana + `ramp`, `ramp-with-set-s-mechanic`, `land-ramp`, `multi-land-ramp`, `combat-ramp`, `tutor-land-to-battlefield` | 8 |
-| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw`, `impulsive-draw`, `repeatable-draw`, `repeatable-loot`, `loot`, `curiosity`, `wheel-symmetrical` | 8 |
+| Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-draw`, `repeatable-loot`, `loot`, `curiosity`, `wheel-symmetrical` — cartas que chegam à **mão** | 8 |
 | Remoção | `spot-removal`, `removal-creature/destroy/exile/toughness/nonland/sacrifice/artifact/land/enchantment/permanent/planeswalker/fight/aura/equipment/noncreature/vehicle/battle/nonenchantment/spacecraft`, `swap-removal`, `repeatable-removal`, `sweeper*`, `burn-any`, `burn-creature`, `burn-planeswalker`, `burn-with-set-s-mechanic`, `bombard`, `banish`, `lockdown-creature` — respostas **permanentes/duras** | 8 |
 | Proteção | prefixo `protects-`, `gives-protection`, `gains-protection` — proteger o que já tens em jogo | 3 |
 | Disrupção | prefixo `counterspell`, `discard`, `cost-increaser`, `cast-tax`, `tax-attack`, `tax-block`, `prevent-cast`, `stasis`, `mass-land-denial`, `lockdown-land` — negar recursos/ações ao adversário | 2 |
 | Interação/Resposta | `removal-bounce`, `removal-tuck`, `freeze-creature`, prefixo `tapper-` — responder sem remover nem proteger (tap em massa, bounce, tuck) | 2 |
 | Fecho de jogo | só `alternate-win-condition` — único sinal explícito da Scryfall para "ganha o jogo fora do combate normal"; não existe tag genérica "finisher"/"wincon". Fase 5: + combos do Commander Spellbook cujo resultado seja dano/vida em massa ou "win the game" (§12) | 1 |
 | Amplificadores | `extra-combat-phase` (fase de combate — não confundir com turno extra, critério diferente da checklist de bracket, §6), `anthem` (+X/+X real; `keyword-anthem`, que só concede keywords, fica de fora), `storm-like`, `storm-count-matters` — acelera um plano já existente, não fecha nada por si | 2 |
+| Acesso Temporário | `impulsive-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw` — exila do topo da biblioteca e dá uma janela para jogar essas cartas, **nunca as põe na mão** (Light Up the Stage, Chandra, Torch of Defiance); converte mana em acesso, não acumula recursos | 2 (tentativo, a confirmar) |
 
 Terrenos: 36.
 
@@ -588,12 +591,61 @@ promovidas sem voltar a medir: `lockdown-artifact` (n=15), `lockdown-permanent`
 "exilar temporariamente da mão" —, amostra pequena demais para decidir),
 `freeze-artifact` (n=9), `freeze-nonland` (n=6), `freeze-permanent-any`
 (n=6), `freeze-land` (n=10), `wheel-symmetrical-optional` (n=10),
-`burn-bright-with-set-mechanic` (n=21). `wheel-one-sided` (60%, n=85) tem
-amostra suficiente mas ficou pendente — ver abaixo, decisão ainda por
-tomar com a lista de cartas em mãos. `burn-player`, `burn-you` e
+`burn-bright-with-set-mechanic` (n=21). `burn-player`, `burn-you` e
 `curiosity-like` têm amostra grande (784, 104, 74) e dispersão real, não de
 amostra — confirmados como não-classificadores, não entram nesta lista de
 revisão.
+
+`wheel-one-sided` (60%, n=85, amostra suficiente) **excluído em 5 de
+setembro de 2026**, por razão diferente das acima: das 85 cartas, 51 já
+classificam Draw por outra tag; as 26 que ficariam a dever tudo a esta tag
+seguem sobretudo o padrão "descarta a mão, depois compra N" (Bedlam
+Reveler, Phyrexian Dragon Engine, Rix Maadi Reveler), mas confirmar
+oracle_text carta a carta para 26 casos não compensa. Registado aqui para
+reavaliar se o conjunto crescer o suficiente para decidir por amostragem
+em vez de inspeção manual.
+
+**Correção de 5 de setembro de 2026 — Draw estava a contar Acesso
+Temporário.** `impulsive-draw`, `repeatable-impulsive-draw` e
+`long-term-impulsive-draw` **saíram de Draw**: exilam do topo da
+biblioteca e dão uma janela para jogar essas cartas (Light Up the Stage:
+"Exile the top two cards of your library... you may play those cards";
+Chandra, Torch of Defiance: "Exile the top card... You may cast that
+card"), nunca as põem na mão. Era um erro na tabela original, não uma
+lacuna nova — 237 cartas do catálogo têm alguma destas tags, 235 não têm
+nenhuma outra tag de draw real e contavam para Draw só por isto. **Draw do
+Limit Break passa de 12 para 9** (saem `Cait Sith, Fortune Teller`,
+`Furious Rise`, `Professional Face-Breaker`) — correção aceite mesmo
+piorando o número, porque o resultado anterior estava errado, não porque
+o alvo mudou.
+
+Ficam a formar sozinhas o novo papel **Acesso Temporário** (9º papel,
+acima), não uma extensão de Draw: convertem mana em acesso a cartas, nunca
+acumulam recursos — um deck com muito disto tem uma estratégia
+identificável (spend-now, tempo), informação que o plano de jogo do §7.2
+vai precisar. Testados como candidatos ao mesmo papel e **rejeitados por
+não convergirem** com as três tags de acesso temporário (0–8% de
+sobreposição de cartas no catálogo real): `cost-reducer` (mecanismo
+diferente — gasta menos mana, não troca uma carta por acesso temporário a
+outras; n=83, 0% em Ramp hoje, candidato a papel próprio no futuro, não
+decidido), `gives-haste` (**armadilha de nome** — é subproduto de roubo ou
+reanimação, não "haste em massa": Sauron, the Lidless Eye e Puppeteer
+Clique dão haste a uma criatura roubada/reanimada, o efeito principal é
+outro; n=513), `extra-land`/`play-additional-land` (já bem servidos em
+Ramp, 74–100%; n=30/39), `ritual`/`ritual-untap` (já 100% em Ramp,
+zero sobreposição com acesso temporário; n=59/20). Por isto o nome ficou
+**estreito de propósito** — "Acesso Temporário", não "Velocidade": o
+papel só tem as três tags de exílio-e-jogar, nenhum candidato mais largo
+resistiu ao teste.
+
+**Armadilha de nome, registada para não se repetir:** a tag `impulse`
+(sem sufixo) **não é isto** — é "olha as top N cartas, põe uma na mão"
+(Sleight of Hand, Telling Time), seleção de cartas para a mão, não
+exílio temporário. Nunca deve entrar no papel Acesso Temporário.
+`impulsive-mill`/`impulsive-recursion`/`impulsive-curiosity` são a mesma
+mecânica de exílio-e-jogar disparada por mill/cemitério/dano de combate —
+nunca entraram em nenhum papel, corretamente, mas ficam registadas como a
+mesma família por futura referência.
 
 **Um papel nunca é uma regra sobre a cor do deck.** `Mana Tithe`, `Rebuff
 the Wicked`, `Dawn Charm` e `Lapse of Certainty` são brancas e têm
@@ -644,6 +696,9 @@ esse é o resultado correto, não motivo para subir o número.
   dedicado é bónus, não requisito, mas zero é informação útil ("este deck
   só ganha se conseguir atacar").
 - **Amplificadores 2** — idem, situacional.
+- **Acesso Temporário 2** — tentativo, ainda por confirmar com o Diogo como
+  os outros alvos situacionais; papel novo (5 de setembro de 2026), sem
+  histórico de deck para validar o número.
 
 **Onde aparece:** botão "Ver métricas" por deck na lista de "Decks
 guardados", ao lado de "Ver cartas" — computado sob demanda (mais trabalho
@@ -652,11 +707,14 @@ botão que expande a lista de cartas que a compõe. Texto simples, sem
 gráficos. Uma carta classificada com incerteza (acima) aparece marcada nessa
 lista — não some dentro da contagem como se fosse uma classificação normal.
 
-Testado contra o Limit Break real: 37 terrenos, 41 fontes de mana, ramp 11,
-draw 12, remoção 9, proteção 8, disrupção 0, interação/resposta 3, fecho de
-jogo 1 (Hellkite Tyrant), amplificadores 1 (Tifa, Martial Artist, por
-combate extra). **Papéis em falta: disrupção (0 de 2) e amplificadores (1 de
-2)** — um resultado real e não-trivial, nem tudo passa nem tudo falha.
+Testado contra o Limit Break real (5 de setembro de 2026, depois da
+correção de Draw/Acesso Temporário): 37 terrenos, 41 fontes de mana, ramp
+11, draw 9, remoção 9, proteção 8, disrupção 0, interação/resposta 3,
+fecho de jogo 1 (Hellkite Tyrant), amplificadores 1 (Tifa, Martial
+Artist), acesso temporário 3 (`Cait Sith, Fortune Teller`, `Furious
+Rise`, `Professional Face-Breaker`). **Papéis em falta: disrupção (0 de 2)
+e amplificadores (1 de 2)** — draw desceu de 12 para 9 com a correção, mas
+continua acima do alvo de 8, não entra na lista de papéis em falta.
 
 **7.2 Declarada (formulário).** Define o **plano de jogo** do deck — o que a
 Fase C do §8 usa para pontuar cada carta. Semeado automaticamente a partir das
@@ -853,7 +911,16 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   incerta implementado (n≥25, ≥80% concentração) com terceiro estado de
   anulação `"confirm"`. Resultados do Limit Break inalterados (nenhuma tag
   nova calhou nas cartas deste deck) — validado por regressão, não só por
-  inspeção.
+  inspeção. **Revisto uma terceira vez em 5 de setembro de 2026:** Draw
+  estava a contar `impulsive-draw`/`repeatable-impulsive-draw`/
+  `long-term-impulsive-draw` (exílio-e-jogar, nunca chega à mão) — erro da
+  tabela original, corrigido. Novo 9º papel, **Acesso Temporário**, criado
+  só para essas três tags depois de testar (e rejeitar) `cost-reducer`,
+  `gives-haste`, `extra-land`/`play-additional-land` e `ritual`/
+  `ritual-untap` como candidatos ao mesmo papel — nenhum convergiu (0–8%
+  de sobreposição). Draw do Limit Break passa de 12 para 9 (número pior,
+  correção aceite) e o deck ganha acesso temporário 3/2 (acima do alvo
+  tentativo).
 - Formulário de perfil declarado (§7.2)
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)

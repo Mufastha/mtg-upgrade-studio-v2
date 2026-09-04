@@ -43,21 +43,46 @@ const RAMP_TAGS = new Set([
 // de 2026) - curiosity-like, apesar do nome parecido, dispersa (16%) e
 // ficou de fora; wheel-one-sided (60%, n=85) ficou pendente, amostra
 // suficiente mas abaixo do limiar de confiança, decisão do Diogo.
+//
+// impulsive-draw/repeatable-impulsive-draw/long-term-impulsive-draw SAÍRAM
+// daqui em 5 de setembro de 2026 - exilam do topo da biblioteca e dão
+// acesso temporário a jogar essas cartas, nunca as põem na mão (Light Up
+// the Stage, Chandra Torch of Defiance). Não é draw, é ACCESS_TAGS abaixo.
+// Isto baixa o Draw do Limit Break de 12 para 9 - correção aceite mesmo
+// piorando o número, o erro estava aqui antes de hoje.
 const DRAW_TAGS = new Set([
   'draw-engine',
   'repeatable-pure-draw',
   'pure-draw',
   'burst-draw',
   'force-draw',
-  'repeatable-impulsive-draw',
-  'long-term-impulsive-draw',
-  'impulsive-draw',
   'repeatable-draw',
   'repeatable-loot',
   'loot',
   'curiosity',
   'wheel-symmetrical',
 ]);
+
+// Papel "Acesso Temporário" (9º papel, 5 de setembro de 2026): converte mana
+// em acesso a cartas, nunca as acumula - Light Up the Stage e Chandra,
+// Torch of Defiance exilam do topo e dão uma janela para jogar, sem nunca
+// pôr nada na mão. Nome estreito de propósito, não "velocidade": testados
+// cost-reducer, gives-haste, extra-land/play-additional-land e ritual/
+// ritual-untap como candidatos ao mesmo balde e nenhum converge com estas
+// três (0-8% de sobreposição de cartas) - extra-land/play-additional-land/
+// ritual já estão bem servidos em Ramp (74-100%), gives-haste é uma
+// armadilha de nome (é subproduto de roubo/reanimação, não "haste em
+// massa" - Sauron the Lidless Eye, Puppeteer Clique), cost-reducer é um
+// mecanismo genuinamente diferente (gasta menos mana, não troca uma carta
+// por acesso temporário a outras). O balde fica só com as três tags de
+// impulse - "acesso temporário" descreve exatamente isto, "velocidade"
+// seria largo demais.
+//
+// Armadilha de nome à parte: a tag `impulse` (sem sufixo) NÃO é isto - é
+// "olha as top N, põe 1 na mão" (Sleight of Hand, Telling Time), seleção
+// de cartas para a mão, não exílio temporário. Nunca deve entrar neste
+// balde.
+const ACCESS_TAGS = new Set(['impulsive-draw', 'repeatable-impulsive-draw', 'long-term-impulsive-draw']);
 
 // Remoção = respostas permanentes/duras (destroy, exile, sacrifice forçado,
 // fight, sweepers). Bounce e tuck saíram daqui - ver INTERACTION_TAGS: um
@@ -170,6 +195,7 @@ const ROLE_TARGETS = {
   interaction: 2,
   closers: 1,
   amplifiers: 2,
+  access: 2, // tentativo - a confirmar com o Diogo, como os outros alvos situacionais
 };
 const LAND_TARGET = 36;
 
@@ -194,6 +220,7 @@ function classifyRoles(tags) {
     interaction: hasPrefix(tags, INTERACTION_TAG_PREFIXES) || hasAny(tags, INTERACTION_EXACT_TAGS),
     closers: hasAny(tags, CLOSER_TAGS),
     amplifiers: hasAny(tags, AMPLIFIER_TAGS),
+    access: hasAny(tags, ACCESS_TAGS),
   };
 }
 
@@ -208,6 +235,7 @@ const ESTABLISHED_TAGS = new Set([
   ...INTERACTION_EXACT_TAGS,
   ...CLOSER_TAGS,
   ...AMPLIFIER_TAGS,
+  ...ACCESS_TAGS,
 ]);
 const ESTABLISHED_PREFIXES = [...PROTECTION_TAG_PREFIXES, ...DISRUPTION_TAG_PREFIXES, ...INTERACTION_TAG_PREFIXES];
 function isEstablishedTag(tag) {

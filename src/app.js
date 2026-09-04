@@ -63,6 +63,7 @@ const ROLE_LABELS = {
   interaction: 'Interação/Resposta',
   closers: 'Fecho de jogo',
   amplifiers: 'Amplificadores',
+  access: 'Acesso Temporário',
 };
 
 function escapeHtml(str) {
