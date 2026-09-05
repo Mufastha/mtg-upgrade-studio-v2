@@ -134,3 +134,13 @@ export async function setRoleOverride(deckId, oracleId, role, action) {
   if (action) overrides.push({ oracle_id: oracleId, role, action });
   await putAll('decks', [{ ...deck, role_overrides: overrides }]);
 }
+
+// Plano de jogo (§7.2) - guardado por deck, nunca por configuração (o
+// commander já amarra o deck a um plano). Semeado do commander
+// (game-plan.js: seedGamePlan) e sempre revisto/editado pelo Diogo antes
+// de ser guardado - nunca aceite automático.
+export async function saveGamePlan(deckId, gamePlan) {
+  const deck = await getRecord('decks', deckId);
+  if (!deck) throw new Error('Deck não encontrado.');
+  await putAll('decks', [{ ...deck, game_plan: gamePlan }]);
+}

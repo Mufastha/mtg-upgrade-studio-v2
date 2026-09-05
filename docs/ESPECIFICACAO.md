@@ -756,6 +756,16 @@ game_plan {
 como corte numa configuração específica; não é sobre o plano em si, por isso
 não muda de sítio.
 
+**Implementado em 5 de setembro de 2026, sem nenhum filtro automático na
+semente:** `seedGamePlan` (`src/rules/game-plan.js`) copia todas as
+`oracle_tags` do commander tal e qual, incluindo tags de bookkeeping da
+Scryfall sem relação nenhuma com o plano (`cycle-fic-face-commander`,
+presente em Cloud e em Tifa). Deliberado — filtrar automaticamente
+arriscaria esconder um sinal genuíno por engano, e o próprio formulário
+existe precisamente para o Diogo fazer essa curadoria em trinta segundos;
+inventar um filtro nosso seria decidir por ele o que é ou não plano, o
+oposto do que esta camada faz.
+
 **7.3 Sintetizada (LLM).** O modelo lê a lista mais as métricas e propõe um
 perfil em JSON estruturado. **Sempre revisto e editado pelo utilizador antes de
 ser guardado.** Nunca aceite automático. Guardado com versão.
@@ -936,7 +946,18 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   **sem alvo de referência** (decidido depois de um primeiro rascunho com
   alvo 2 tentativo: um número sem base para um papel de dias não significa
   nada, corrigido no mesmo dia).
-- Formulário de perfil declarado (§7.2)
+- ~~Formulário de perfil declarado (§7.2)~~ — **já feito**, 5 de setembro
+  de 2026. `src/rules/game-plan.js` (`seedGamePlan`) + `saveGamePlan` em
+  `decklist.js` + painel "Ver plano de jogo" na lista de decks. Semente
+  sem nenhum filtro automático — todas as `oracle_tags` do commander
+  entram, incluindo bookkeeping da Scryfall (`cycle-fic-face-commander`);
+  a curadoria é sempre do Diogo no formulário, nunca do código. Confirmado
+  com Cloud, Ex-SOLDIER (12 tags semeadas, incluindo `synergy-equipment`/
+  `quick-equip`) vs Tifa, Martial Artist (10 tags, `power-matters` sem
+  nenhuma tag de equipamento) — dois planos distintos a partir do mesmo
+  deck, como previsto. Guardado por deck (`deck.game_plan`), nunca por
+  configuração. **Pendente:** validação do Diogo sobre a proposta real
+  para o Cloud antes de o §8 usar isto para pontuar.
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)
 

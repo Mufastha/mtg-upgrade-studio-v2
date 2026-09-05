@@ -5,8 +5,9 @@ import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows, buildDeckMetrics } from './ui/deck-view.js';
 import { ROLE_KEYS } from './rules/deck-metrics.js';
+import { seedGamePlan } from './rules/game-plan.js';
 import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
-import { resolveDecklist, saveDeck, renameDeck, deleteDeck, setRoleOverride } from './importers/decklist.js';
+import { resolveDecklist, saveDeck, renameDeck, deleteDeck, setRoleOverride, saveGamePlan } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData, FORMAT as PERSONAL_DATA_FORMAT } from './data/personal.js';
 
 const statusEl = document.getElementById('status');
@@ -52,7 +53,7 @@ const MAX_RESULTS = 50;
 const COLLECTION_PAGE_SIZE = 50;
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
-// §7.1 - rótulos em português dos 8 papéis (ROLE_KEYS vem de deck-metrics.js,
+// §7.1 - rótulos em português dos papéis (ROLE_KEYS vem de deck-metrics.js,
 // nomes internos em inglês por convenção).
 const ROLE_LABELS = {
   ramp: 'Ramp',
@@ -193,6 +194,7 @@ function setupDeckView(cards) {
   let deckCards = [];
   let expandedDeckId = null;
   let metricsDeckId = null;
+  let planDeckId = null;
   let expandedBucket = null; // "<deckId>:<bucketKey>" — só uma de cada vez
 
   function render() {
@@ -217,6 +219,7 @@ function setupDeckView(cards) {
           <td>
             <button type="button" data-action="ver" data-deck-id="${s.deck_id}">${expandedDeckId === s.deck_id ? 'Fechar' : 'Ver cartas'}</button>
             <button type="button" data-action="metricas" data-deck-id="${s.deck_id}">${metricsDeckId === s.deck_id ? 'Fechar métricas' : 'Ver métricas'}</button>
+            <button type="button" data-action="plano" data-deck-id="${s.deck_id}">${planDeckId === s.deck_id ? 'Fechar plano' : 'Ver plano de jogo'}</button>
             <button type="button" data-action="renomear" data-deck-id="${s.deck_id}">Renomear</button>
             <button type="button" data-action="apagar" data-deck-id="${s.deck_id}">Apagar</button>
           </td>
@@ -231,6 +234,7 @@ function setupDeckView(cards) {
               .join('<br>')}</td></tr>`;
 
         const metricsRow = metricsDeckId === s.deck_id ? renderMetricsRow(s.deck_id) : '';
+        const planRow = planDeckId === s.deck_id ? renderGamePlanRow(s.deck_id) : '';
 
         const cardsRow =
           expandedDeckId === s.deck_id
@@ -239,7 +243,7 @@ function setupDeckView(cards) {
                 .join('<br>')}</td></tr>`
             : '';
 
-        return summaryRow + problemsRow + metricsRow + cardsRow;
+        return summaryRow + problemsRow + metricsRow + planRow + cardsRow;
       })
       .join('');
     decksTableEl.hidden = false;
@@ -312,6 +316,29 @@ function setupDeckView(cards) {
       `</td></tr>`;
   }
 
+  // §7.2 - plano de jogo semeado das oracle_tags do commander, sempre
+  // revisto/editado pelo Diogo antes de guardar (nunca aceite automático).
+  // Guardado por deck (game-plan.js: seedGamePlan / decklist.js:
+  // saveGamePlan), não por configuração - o commander já amarra o deck a
+  // um plano.
+  function renderGamePlanRow(deckId) {
+    const deck = decks.find((d) => d.deck_id === deckId);
+    const commander = cardsByOracleId.get(deck?.commander_oracle_id);
+    const plan = deck?.game_plan ?? seedGamePlan(commander);
+    const seeded = !deck?.game_plan;
+
+    return `<tr class="deck-plano"><td colspan="6">` +
+      `<label>Arquétipo (texto livre curto, ex. "equipment voltron"):<br>` +
+      `<input type="text" data-plano-campo="archetype" data-deck-id="${deckId}" value="${escapeHtml(plan.archetype)}"></label><br>` +
+      `<label>Eixos de sinergia — semeados das oracle_tags de ${escapeHtml(commander?.name ?? '(sem commander)')}, separados por vírgula:<br>` +
+      `<textarea data-plano-campo="synergy" data-deck-id="${deckId}" rows="2">${escapeHtml(plan.synergy_tags.join(', '))}</textarea></label><br>` +
+      `<label>Linhas indesejadas (tags a evitar em recomendações, separadas por vírgula):<br>` +
+      `<input type="text" data-plano-campo="avoid" data-deck-id="${deckId}" value="${escapeHtml(plan.avoid_tags.join(', '))}"></label><br>` +
+      `<button type="button" data-action="guardar-plano" data-deck-id="${deckId}">Guardar plano de jogo</button>` +
+      (seeded ? ' <em>ainda não guardado — isto é a sugestão semeada do commander, por confirmar</em>' : '') +
+      `</td></tr>`;
+  }
+
   decksBodyEl.addEventListener('click', async (ev) => {
     const btn = ev.target.closest('button[data-deck-id]');
     if (!btn) return;
@@ -334,6 +361,25 @@ function setupDeckView(cards) {
       const bucketId = `${deckId}:${btn.dataset.bucket}`;
       expandedBucket = expandedBucket === bucketId ? null : bucketId;
       render();
+      return;
+    }
+
+    if (action === 'plano') {
+      planDeckId = planDeckId === deckId ? null : deckId;
+      render();
+      return;
+    }
+
+    if (action === 'guardar-plano') {
+      const campo = (nome) => decksBodyEl.querySelector(`[data-plano-campo="${nome}"][data-deck-id="${deckId}"]`);
+      const parseTags = (value) => value.split(',').map((t) => t.trim()).filter(Boolean);
+      const gamePlan = {
+        archetype: campo('archetype').value.trim(),
+        synergy_tags: parseTags(campo('synergy').value),
+        avoid_tags: parseTags(campo('avoid').value),
+      };
+      await saveGamePlan(deckId, gamePlan);
+      await refresh();
       return;
     }
 
@@ -416,6 +462,7 @@ function setupDeckView(cards) {
         metricsDeckId = null;
         expandedBucket = null;
       }
+      if (planDeckId === deckId) planDeckId = null;
       await refresh();
     }
   });

@@ -67,9 +67,18 @@ e atualizar a especificação primeiro — não contorná-la em código.
 
 Fase 1 (fundação de dados) aceite — os três critérios do §11 da
 especificação estão cumpridos e testados contra dados reais do Diogo.
-Fase 2 (análise de deck) por começar, exceto duas partes já feitas — ver
+Fase 2 (análise de deck) por começar, exceto três partes já feitas — ver
 §11 da especificação:
 - **§7.0** (validação de legalidade do deck).
+- **§7.2** (formulário de plano de jogo), 5 de setembro de 2026:
+  `seedGamePlan` (`src/rules/game-plan.js`) copia todas as `oracle_tags` do
+  commander sem filtro nenhum — a curadoria é do Diogo no formulário, não
+  do código. Painel "Ver plano de jogo" na lista de decks, guardado em
+  `deck.game_plan`. Confirmado com Cloud (12 tags, `synergy-equipment`/
+  `quick-equip`) vs Tifa (10 tags, `power-matters`, nenhuma de
+  equipamento) — dois planos distintos do mesmo deck. **Pendente:** o
+  Diogo ainda vai validar a proposta real para o Cloud antes de o §8 usar
+  isto para pontuar.
 - **§7.1** (métricas determinísticas por papel), revista no mesmo dia:
   fiabilidade de uma família de tags apura-se por teste mecânico (como as
   cartas do catálogo com essa tag se distribuem pelos papéis — converge
@@ -105,14 +114,14 @@ falhas do importador da ManaBox deixou de depender da rede em tempo real
 para explicar um erro (violava a invariante 10); a razão vem agora de
 `excluded.json`, gerado na build.
 
-**Decidido mas ainda por implementar** (documentado em §7.2/§8/§6.4 da
+**Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):
-- O plano de jogo do commander (§7.2) — semeado das `oracle_tags` do
-  commander — substitui os alvos fixos como motor de recomendação: o §8
-  passa a pontuar cada carta do deck e cada candidata pelo mesmo score de
-  mérito face ao plano, nunca por preenchimento de papel em falta; posse e
-  preço ficam como classificação ao lado, fora do score; os pesos do score
-  são sliders na UI, não constantes no código.
+- O §8 passa a pontuar cada carta do deck e cada candidata pelo mesmo
+  score de mérito face ao plano do §7.2 (já implementado, ver acima),
+  nunca por preenchimento de papel em falta; posse e preço ficam como
+  classificação ao lado, fora do score; os pesos do score são sliders na
+  UI, não constantes no código. **Não começar sem o Diogo ter validado a
+  proposta do plano para o Cloud primeiro.**
 - Cortes por excesso de Game Changers do bracket exigem par de substituição
   (§8); regras próprias do grupo de torneio (turno esperado, combo com o
   commander, limiar de mana de combo precoce) ficam em
