@@ -567,7 +567,7 @@ tautológico).
 | Interação/Resposta | `removal-bounce`, `removal-tuck`, `freeze-creature`, prefixo `tapper-` — responder sem remover nem proteger (tap em massa, bounce, tuck) | 2 |
 | Fecho de jogo | só `alternate-win-condition` — único sinal explícito da Scryfall para "ganha o jogo fora do combate normal"; não existe tag genérica "finisher"/"wincon". Fase 5: + combos do Commander Spellbook cujo resultado seja dano/vida em massa ou "win the game" (§12) | 1 |
 | Amplificadores | `extra-combat-phase` (fase de combate — não confundir com turno extra, critério diferente da checklist de bracket, §6), `anthem` (+X/+X real; `keyword-anthem`, que só concede keywords, fica de fora), `storm-like`, `storm-count-matters` — acelera um plano já existente, não fecha nada por si | 2 |
-| Acesso Temporário | `impulsive-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw` — exila do topo da biblioteca e dá uma janela para jogar essas cartas, **nunca as põe na mão** (Light Up the Stage, Chandra, Torch of Defiance); converte mana em acesso, não acumula recursos | 2 (tentativo, a confirmar) |
+| Acesso Temporário | `impulsive-draw`, `repeatable-impulsive-draw`, `long-term-impulsive-draw` — exila do topo da biblioteca e dá uma janela para jogar essas cartas, **nunca as põe na mão** (Light Up the Stage, Chandra, Torch of Defiance); converte mana em acesso, não acumula recursos | — (sem alvo, ver nota abaixo) |
 
 Terrenos: 36.
 
@@ -638,6 +638,17 @@ zero sobreposição com acesso temporário; n=59/20). Por isto o nome ficou
 papel só tem as três tags de exílio-e-jogar, nenhum candidato mais largo
 resistiu ao teste.
 
+**Acesso Temporário não tem alvo de referência, e é deliberado — corrigido
+em 5 de setembro de 2026 depois de um primeiro rascunho com alvo 2
+tentativo.** Um alvo num papel criado há dias não vem de nenhuma base:
+nenhum guia de construção EDH fala em "acesso temporário" como categoria
+(ao contrário de terrenos/ramp/draw/remoção, citados pela generalidade
+deles), e inventar um número sem essa base tornaria "passar" ou "falhar"
+neste papel um resultado sem significado. **O papel mede-se e mostra-se
+sempre** — a contagem aparece na UI como qualquer outro — mas só entra na
+lista de "papéis em falta" quando houver um alvo real para o justificar.
+Nunca aparece em `missingRoles` até essa base existir.
+
 **Armadilha de nome, registada para não se repetir:** a tag `impulse`
 (sem sufixo) **não é isto** — é "olha as top N cartas, põe uma na mão"
 (Sleight of Hand, Telling Time), seleção de cartas para a mão, não
@@ -696,9 +707,10 @@ esse é o resultado correto, não motivo para subir o número.
   dedicado é bónus, não requisito, mas zero é informação útil ("este deck
   só ganha se conseguir atacar").
 - **Amplificadores 2** — idem, situacional.
-- **Acesso Temporário 2** — tentativo, ainda por confirmar com o Diogo como
-  os outros alvos situacionais; papel novo (5 de setembro de 2026), sem
-  histórico de deck para validar o número.
+
+**Acesso Temporário não tem alvo** — ver nota acima, na descrição do
+papel: mede-se e mostra-se, nunca entra nesta lista sem uma base real para
+justificar um número.
 
 **Onde aparece:** botão "Ver métricas" por deck na lista de "Decks
 guardados", ao lado de "Ver cartas" — computado sob demanda (mais trabalho
@@ -712,8 +724,9 @@ correção de Draw/Acesso Temporário): 37 terrenos, 41 fontes de mana, ramp
 11, draw 9, remoção 9, proteção 8, disrupção 0, interação/resposta 3,
 fecho de jogo 1 (Hellkite Tyrant), amplificadores 1 (Tifa, Martial
 Artist), acesso temporário 3 (`Cait Sith, Fortune Teller`, `Furious
-Rise`, `Professional Face-Breaker`). **Papéis em falta: disrupção (0 de 2)
-e amplificadores (1 de 2)** — draw desceu de 12 para 9 com a correção, mas
+Rise`, `Professional Face-Breaker` — sem alvo, medido e mostrado, sem
+entrar em "papéis em falta"). **Papéis em falta: disrupção (0 de 2) e
+amplificadores (1 de 2)** — draw desceu de 12 para 9 com a correção, mas
 continua acima do alvo de 8, não entra na lista de papéis em falta.
 
 **7.2 Declarada (formulário).** Define o **plano de jogo** do deck — o que a
@@ -919,8 +932,10 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   `gives-haste`, `extra-land`/`play-additional-land` e `ritual`/
   `ritual-untap` como candidatos ao mesmo papel — nenhum convergiu (0–8%
   de sobreposição). Draw do Limit Break passa de 12 para 9 (número pior,
-  correção aceite) e o deck ganha acesso temporário 3/2 (acima do alvo
-  tentativo).
+  correção aceite) e o deck ganha acesso temporário 3 — medido e mostrado,
+  **sem alvo de referência** (decidido depois de um primeiro rascunho com
+  alvo 2 tentativo: um número sem base para um papel de dias não significa
+  nada, corrigido no mesmo dia).
 - Formulário de perfil declarado (§7.2)
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)

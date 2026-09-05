@@ -186,6 +186,13 @@ const AMPLIFIER_TAGS = new Set(['extra-combat-phase', 'anthem', 'storm-like', 's
 // não de alvos fixos - ver §12). Pisos de senso comum de construção EDH,
 // não ajustados para nenhum deck passar ou falhar. Documentados com
 // justificação no §7.1 da especificação.
+//
+// "access" (Acesso Temporário) fica de propósito fora daqui - é um papel
+// medido e mostrado, sem alvo de referência. Um alvo de 2 num papel criado
+// há dias não vem de nenhuma base (nenhum guia de construção EDH fala
+// nisto, ao contrário de terrenos/ramp/draw/remoção); um deck "passar" com
+// 3 seria um número sem significado. Alvo só quando houver com que o
+// justificar - ver §7.1 da especificação.
 const ROLE_TARGETS = {
   ramp: 8,
   draw: 8,
@@ -195,11 +202,12 @@ const ROLE_TARGETS = {
   interaction: 2,
   closers: 1,
   amplifiers: 2,
-  access: 2, // tentativo - a confirmar com o Diogo, como os outros alvos situacionais
 };
 const LAND_TARGET = 36;
 
-const ROLE_KEYS = Object.keys(ROLE_TARGETS);
+// Todos os papéis classificáveis - inclui "access", que não tem alvo (ver
+// ROLE_TARGETS acima) mas continua a medir-se e a aparecer na UI.
+const ROLE_KEYS = [...Object.keys(ROLE_TARGETS), 'access'];
 
 function hasAny(tags, set) {
   return tags.some((t) => set.has(t));

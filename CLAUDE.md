@@ -85,8 +85,11 @@ Fase 2 (análise de deck) por começar, exceto duas partes já feitas — ver
   de setembro de 2026:** Draw estava a contar `impulsive-draw` e as duas
   tags-irmãs (exílio-e-jogar, nunca chega à mão) — erro da tabela
   original, corrigido; Draw do Limit Break passa de 12 para 9. Essas três
-  tags formam sozinhas o novo 9º papel, **Acesso Temporário** (alvo 2,
-  tentativo) — testados e rejeitados como candidatos ao mesmo papel:
+  tags formam sozinhas o novo 9º papel, **Acesso Temporário** — medido e
+  mostrado, **sem alvo de referência** (um número para um papel de dias
+  não tem base nenhuma, corrigido no mesmo dia depois de um primeiro
+  rascunho tentativo) — testados e rejeitados como candidatos ao mesmo
+  papel:
   `cost-reducer`, `gives-haste` (armadilha de nome — subproduto de roubo/
   reanimação, não "haste em massa"), `extra-land`/`play-additional-land`,
   `ritual`/`ritual-untap` (0–8% de sobreposição com as três, todos já bem
