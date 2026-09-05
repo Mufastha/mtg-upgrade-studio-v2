@@ -756,15 +756,31 @@ game_plan {
 como corte numa configuração específica; não é sobre o plano em si, por isso
 não muda de sítio.
 
-**Implementado em 5 de setembro de 2026, sem nenhum filtro automático na
-semente:** `seedGamePlan` (`src/rules/game-plan.js`) copia todas as
-`oracle_tags` do commander tal e qual, incluindo tags de bookkeeping da
-Scryfall sem relação nenhuma com o plano (`cycle-fic-face-commander`,
-presente em Cloud e em Tifa). Deliberado — filtrar automaticamente
-arriscaria esconder um sinal genuíno por engano, e o próprio formulário
-existe precisamente para o Diogo fazer essa curadoria em trinta segundos;
-inventar um filtro nosso seria decidir por ele o que é ou não plano, o
-oposto do que esta camada faz.
+**Implementado em 5 de setembro de 2026.** `seedGamePlan`
+(`src/rules/game-plan.js`) copia as `oracle_tags` do commander, com um
+único filtro: **prefixo `cycle-*` sai da semente.** Não é curadoria do
+Diogo — é bookkeeping da Scryfall para agrupar ciclos e reimpressões
+dentro de um set (`cycle-fic-face-commander`, presente em Cloud e em
+Tifa), sem relação nenhuma com jogabilidade, e já tinha reprovado no
+teste de dispersão do §7.1 (1 386 tags, 55% sem papel). Remover isto é
+tirar ruído medido, não decidir o que é plano — nenhum outro filtro
+existe: inventar mais seria decidir por ele o que é ou não eixo de
+sinergia, o oposto do que esta camada faz.
+
+**Revisto no mesmo dia — distinguir papel de eixo de sinergia na
+semente.** Tags como `burst-draw`, `draw-engine` e `repeatable-pure-draw`
+descrevem **função** (já papel do §7.1, Draw), não **eixo de sinergia**
+(o tema que dá identidade ao plano). Deixadas no plano sem distinção,
+o scoring do §8 premiaria qualquer carta que compre cartas e o eixo de
+equipamento do Cloud diluir-se-ia. A app **não decide isto por ninguém**:
+o formulário anota, ao lado do campo de eixos de sinergia, quais das
+tags semeadas já são papel — `getEstablishedRoleForTag` em
+`deck-metrics.js`, a mesma tabela do §7.1, consultada tag a tag — e para
+que papel, sem as remover sozinha. Confirmado com o Cloud: `burst-draw`,
+`draw-engine` e `repeatable-pure-draw` aparecem anotadas → Draw;
+`synergy-equipment`, `quick-equip`, `power-matters-self` ficam sem
+anotação — são o eixo de sinergia genuíno. O Diogo decide, ao curar, se
+tira as anotadas.
 
 **7.3 Sintetizada (LLM).** O modelo lê a lista mais as métricas e propõe um
 perfil em JSON estruturado. **Sempre revisto e editado pelo utilizador antes de
@@ -948,16 +964,18 @@ COMMANDER` (§4.2). **Fase 1 aceite pelos três critérios.**
   nada, corrigido no mesmo dia).
 - ~~Formulário de perfil declarado (§7.2)~~ — **já feito**, 5 de setembro
   de 2026. `src/rules/game-plan.js` (`seedGamePlan`) + `saveGamePlan` em
-  `decklist.js` + painel "Ver plano de jogo" na lista de decks. Semente
-  sem nenhum filtro automático — todas as `oracle_tags` do commander
-  entram, incluindo bookkeeping da Scryfall (`cycle-fic-face-commander`);
-  a curadoria é sempre do Diogo no formulário, nunca do código. Confirmado
-  com Cloud, Ex-SOLDIER (12 tags semeadas, incluindo `synergy-equipment`/
-  `quick-equip`) vs Tifa, Martial Artist (10 tags, `power-matters` sem
-  nenhuma tag de equipamento) — dois planos distintos a partir do mesmo
-  deck, como previsto. Guardado por deck (`deck.game_plan`), nunca por
-  configuração. **Pendente:** validação do Diogo sobre a proposta real
-  para o Cloud antes de o §8 usar isto para pontuar.
+  `decklist.js` + painel "Ver plano de jogo" na lista de decks. Confirmado
+  com Cloud, Ex-SOLDIER vs Tifa, Martial Artist — dois planos distintos a
+  partir do mesmo deck, como previsto (`synergy-equipment`/`quick-equip`
+  só no Cloud). Guardado por deck (`deck.game_plan`), nunca por
+  configuração. **Revisto no mesmo dia**, depois do Diogo validar a
+  proposta do Cloud: `cycle-*` filtrado da semente (bookkeeping da
+  Scryfall, já reprovado no teste de dispersão do §7.1 — não é curadoria,
+  é remover ruído medido); tags semeadas que já são papel do §7.1
+  (`burst-draw`/`draw-engine`/`repeatable-pure-draw` → Draw, no Cloud)
+  ficam anotadas no formulário via `getEstablishedRoleForTag`, sem serem
+  removidas automaticamente — o Diogo decide se dilui o eixo de sinergia
+  ao curar. **Pronto para o §8** usar como base do scoring.
 - Configurações de deck com bracket alvo (§5)
 - Checklist de bracket com três estados (§6)
 

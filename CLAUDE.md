@@ -71,14 +71,19 @@ Fase 2 (análise de deck) por começar, exceto três partes já feitas — ver
 §11 da especificação:
 - **§7.0** (validação de legalidade do deck).
 - **§7.2** (formulário de plano de jogo), 5 de setembro de 2026:
-  `seedGamePlan` (`src/rules/game-plan.js`) copia todas as `oracle_tags` do
-  commander sem filtro nenhum — a curadoria é do Diogo no formulário, não
-  do código. Painel "Ver plano de jogo" na lista de decks, guardado em
-  `deck.game_plan`. Confirmado com Cloud (12 tags, `synergy-equipment`/
-  `quick-equip`) vs Tifa (10 tags, `power-matters`, nenhuma de
-  equipamento) — dois planos distintos do mesmo deck. **Pendente:** o
-  Diogo ainda vai validar a proposta real para o Cloud antes de o §8 usar
-  isto para pontuar.
+  `seedGamePlan` (`src/rules/game-plan.js`) copia as `oracle_tags` do
+  commander — a curadoria do resto é do Diogo no formulário, não do
+  código. Painel "Ver plano de jogo" na lista de decks, guardado em
+  `deck.game_plan`. Confirmado com Cloud (`synergy-equipment`/
+  `quick-equip`) vs Tifa (`power-matters`, nenhuma de equipamento) — dois
+  planos distintos do mesmo deck. **Validado pelo Diogo e revisto no
+  mesmo dia:** `cycle-*` filtrado da semente (bookkeeping da Scryfall, já
+  reprovado no teste de dispersão do §7.1 — remover ruído medido, não
+  curadoria); tags semeadas que já são papel do §7.1
+  (`burst-draw`/`draw-engine`/`repeatable-pure-draw` → Draw, no Cloud)
+  ficam anotadas no formulário (`getEstablishedRoleForTag` em
+  `deck-metrics.js`) sem serem removidas sozinhas — o Diogo decide se
+  dilui o eixo de sinergia ao curar. **Pronto para o §8.**
 - **§7.1** (métricas determinísticas por papel), revista no mesmo dia:
   fiabilidade de uma família de tags apura-se por teste mecânico (como as
   cartas do catálogo com essa tag se distribuem pelos papéis — converge
@@ -114,14 +119,16 @@ falhas do importador da ManaBox deixou de depender da rede em tempo real
 para explicar um erro (violava a invariante 10); a razão vem agora de
 `excluded.json`, gerado na build.
 
+**Primeiro passo da próxima sessão:** o §8 (motor de recomendação) — o
+plano de jogo do §7.2 já está implementado e validado pelo Diogo (Cloud
+confirmado), nada bloqueia começar.
+
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):
 - O §8 passa a pontuar cada carta do deck e cada candidata pelo mesmo
-  score de mérito face ao plano do §7.2 (já implementado, ver acima),
-  nunca por preenchimento de papel em falta; posse e preço ficam como
-  classificação ao lado, fora do score; os pesos do score são sliders na
-  UI, não constantes no código. **Não começar sem o Diogo ter validado a
-  proposta do plano para o Cloud primeiro.**
+  score de mérito face ao plano do §7.2, nunca por preenchimento de papel
+  em falta; posse e preço ficam como classificação ao lado, fora do
+  score; os pesos do score são sliders na UI, não constantes no código.
 - Cortes por excesso de Game Changers do bracket exigem par de substituição
   (§8); regras próprias do grupo de torneio (turno esperado, combo com o
   commander, limiar de mana de combo precoce) ficam em

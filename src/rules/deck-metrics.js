@@ -232,6 +232,36 @@ function classifyRoles(tags) {
   };
 }
 
+// Para uma tag isolada (não uma carta), diz que papel do §7.1 ela já
+// cobre sozinha, se algum - usado pelo formulário do §7.2 para distinguir
+// "isto já é papel" de "isto é eixo de sinergia" na semente do plano, sem
+// decidir por ninguém (só mostra, nunca remove).
+const ROLE_TAG_SETS = {
+  ramp: RAMP_TAGS,
+  draw: DRAW_TAGS,
+  removal: REMOVAL_TAGS,
+  protection: PROTECTION_EXTRA_TAGS,
+  disruption: DISRUPTION_EXACT_TAGS,
+  interaction: INTERACTION_EXACT_TAGS,
+  closers: CLOSER_TAGS,
+  amplifiers: AMPLIFIER_TAGS,
+  access: ACCESS_TAGS,
+};
+const ROLE_TAG_PREFIX_SETS = {
+  protection: PROTECTION_TAG_PREFIXES,
+  disruption: DISRUPTION_TAG_PREFIXES,
+  interaction: INTERACTION_TAG_PREFIXES,
+};
+export function getEstablishedRoleForTag(tag) {
+  for (const [role, set] of Object.entries(ROLE_TAG_SETS)) {
+    if (set.has(tag)) return role;
+  }
+  for (const [role, prefixes] of Object.entries(ROLE_TAG_PREFIX_SETS)) {
+    if (prefixes.some((p) => tag.startsWith(p))) return role;
+  }
+  return null;
+}
+
 // Tags já estabelecidas acima (mesmo por prefixo) - excluídas do cálculo de
 // sugestões porque testá-las contra si próprias é tautológico.
 const ESTABLISHED_TAGS = new Set([

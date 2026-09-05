@@ -4,7 +4,7 @@ import { loadExcluded } from './catalog/excluded.js';
 import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows, buildDeckMetrics } from './ui/deck-view.js';
-import { ROLE_KEYS } from './rules/deck-metrics.js';
+import { ROLE_KEYS, getEstablishedRoleForTag } from './rules/deck-metrics.js';
 import { seedGamePlan } from './rules/game-plan.js';
 import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
 import { resolveDecklist, saveDeck, renameDeck, deleteDeck, setRoleOverride, saveGamePlan } from './importers/decklist.js';
@@ -327,11 +327,24 @@ function setupDeckView(cards) {
     const plan = deck?.game_plan ?? seedGamePlan(commander);
     const seeded = !deck?.game_plan;
 
+    // Mostra quais das tags semeadas já são papel do §7.1 (função), para
+    // distinguir de eixo de sinergia (forma/tema) ao curar - nunca remove
+    // sozinha, só assinala (o Diogo decide se dilui o eixo ou não).
+    const roleTags = plan.synergy_tags
+      .map((tag) => ({ tag, role: getEstablishedRoleForTag(tag) }))
+      .filter((x) => x.role);
+    const roleHint = roleTags.length
+      ? `<p><strong>Já são papel do §7.1, não eixo de sinergia</strong> (a app não remove sozinha, considera tirar ao curar): ` +
+        roleTags.map((x) => `${escapeHtml(x.tag)} → ${ROLE_LABELS[x.role]}`).join(', ') +
+        `</p>`
+      : '';
+
     return `<tr class="deck-plano"><td colspan="6">` +
       `<label>Arquétipo (texto livre curto, ex. "equipment voltron"):<br>` +
       `<input type="text" data-plano-campo="archetype" data-deck-id="${deckId}" value="${escapeHtml(plan.archetype)}"></label><br>` +
       `<label>Eixos de sinergia — semeados das oracle_tags de ${escapeHtml(commander?.name ?? '(sem commander)')}, separados por vírgula:<br>` +
-      `<textarea data-plano-campo="synergy" data-deck-id="${deckId}" rows="2">${escapeHtml(plan.synergy_tags.join(', '))}</textarea></label><br>` +
+      `<textarea data-plano-campo="synergy" data-deck-id="${deckId}" rows="2">${escapeHtml(plan.synergy_tags.join(', '))}</textarea></label>` +
+      roleHint +
       `<label>Linhas indesejadas (tags a evitar em recomendações, separadas por vírgula):<br>` +
       `<input type="text" data-plano-campo="avoid" data-deck-id="${deckId}" value="${escapeHtml(plan.avoid_tags.join(', '))}"></label><br>` +
       `<button type="button" data-action="guardar-plano" data-deck-id="${deckId}">Guardar plano de jogo</button>` +
