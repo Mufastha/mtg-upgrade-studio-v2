@@ -119,15 +119,27 @@ falhas do importador da ManaBox deixou de depender da rede em tempo real
 para explicar um erro (violava a invariante 10); a razão vem agora de
 `excluded.json`, gerado na build.
 
-**Primeiro passo da próxima sessão:** o §8 (motor de recomendação) — o
-plano de jogo do §7.2 já está implementado e validado pelo Diogo (Cloud
-confirmado), nada bloqueia começar.
+**§8 Fases A/B implementadas em 27 de setembro de 2026**
+(`src/rules/candidate-generation.js`, `generateCandidates`) — geração de
+candidatos + filtros duros, sem scoring. Testado contra o Limit Break real
+(catálogo de 21 de setembro): 31 830 → 18 382 (identidade de cor Naya) →
+18 381 (exclui commander) → 18 288 (exclui as 100 cartas do deck). Antes
+de implementar: confirmado que o workflow do catálogo (`build-catalog.yml`)
+correu toda semana sem interrupção durante o interregno (GitHub não o
+desativou por inatividade) — catálogo local desatualizado (28 de agosto)
+foi substituído pelo deploy mais recente do Pages (21 de setembro, 53 Game
+Changers) antes de gerar candidatos. **Gap descoberto:** o catálogo não
+guarda o campo `reserved` da Scryfall — `exclude_reserved_list` não pôde
+ser implementado, registado no §12 da especificação.
+
+**Primeiro passo da próxima sessão:** o §8 Fase C (scoring) — Fases A/B já
+prontas, plano de jogo do §7.2 validado pelo Diogo, nada bloqueia começar.
 
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):
-- O §8 passa a pontuar cada carta do deck e cada candidata pelo mesmo
-  score de mérito face ao plano do §7.2, nunca por preenchimento de papel
-  em falta; posse e preço ficam como classificação ao lado, fora do
+- O §8 Fase C passa a pontuar cada carta do deck e cada candidata pelo
+  mesmo score de mérito face ao plano do §7.2, nunca por preenchimento de
+  papel em falta; posse e preço ficam como classificação ao lado, fora do
   score; os pesos do score são sliders na UI, não constantes no código.
 - Cortes por excesso de Game Changers do bracket exigem par de substituição
   (§8); regras próprias do grupo de torneio (turno esperado, combo com o

@@ -801,6 +801,22 @@ alvo, `exclude_tags`, `max_cmc`, Reserved List se excluída, cartas já no deck,
 cartas em `source_precon.base_cards` (§4.3) quando o deck tiver precon de
 origem declarado. Uma carta que falhe qualquer filtro não continua.
 
+**Fases A/B implementadas em 27 de setembro de 2026**
+(`src/rules/candidate-generation.js`, `generateCandidates`). Cada filtro é
+aplicado em sequência e devolvido como um passo com a contagem sobrante —
+"quantos candidatos ficam depois de cada filtro" é o próprio contrato da
+função. Testado contra o Limit Break real (catálogo de 21 de setembro de
+2026): 31 830 → 18 382 (identidade de cor Naya) → 18 381 (exclui o
+commander) → 18 288 (exclui as 100 cartas já no deck). Barreiras do
+bracket alvo e enriquecimento por EDHREC (Fase A) ainda não aplicados —
+dependem de `deck_config` (§5), sem UI nem armazenamento ainda.
+
+**Reserved List — gap descoberto ao implementar, registado no §12.** O
+catálogo (§3.1) não guarda o campo `reserved` da Scryfall; o filtro
+`exclude_reserved_list` não tem dados para operar e não foi implementado
+— não é uma omissão silenciosa, é uma lacuna a fechar no catalog-builder
+antes deste filtro poder existir.
+
 **Fase C — Scoring.** Compara cartas do deck com candidatas filtradas pela
 mesma fórmula — não gera candidatas para preencher papéis em falta, mede
 mérito face ao **plano de jogo** do commander (§7.2):
@@ -991,7 +1007,10 @@ para as barreiras verificáveis automaticamente.
 linhas rejeitadas.
 
 ### Fase 4 — Motor de recomendação
-- Fases A a C (§8), sem LLM
+- ~~Fases A/B (§8): geração de candidatos + filtros duros~~ — **já feito**,
+  27 de setembro de 2026. Ver nota em §8. Fases A/B por si só não são a
+  fase aceite (falta Fase C) — marcadas para não se perder o progresso.
+- Fase C (§8), sem LLM
 - Simulação de checklist projetada (§6.2)
 - Sincronização Supabase dos dados pessoais
 
@@ -1018,6 +1037,7 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 | Preço estimado diverge do real | Enquadrado como estimativa em toda a UI (P4) |
 | LLM inventa cartas | Validação contra catálogo (P5) |
 | Biblioteca HXDEC não serve | Fallback: copiar e colar, como já é feito hoje |
+| Catálogo não guarda `reserved` (Scryfall) — `exclude_reserved_list` (§5/§8 Fase B) não tem dados para operar | Acrescentar o campo ao catalog-builder (§3.1) antes de implementar o filtro; descoberto a 27 de setembro de 2026 ao implementar as Fases A/B, não aplicado em silêncio |
 
 **Aberto:** valores iniciais dos pesos `w1..w3` do score (§8 Fase C — já
 sliders na UI, não constantes no código) — a calibrar empiricamente
