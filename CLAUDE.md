@@ -164,10 +164,33 @@ mesmo papel/terrenos em conjunto no mesmo lote — não é um problema no
 Limit Break (só havia 1 terreno de folga), mas é uma lacuna real para
 decks com folgas maiores.
 
-**Pendente:** validação do Diogo sobre a nova lista de corte/adição do
-Cloud (com a elegibilidade do §7.1) antes de avançar para a Fase D. Só
-depois disto: Fase D (LLM, reordenação e justificação sobre o top ~40) e
-a simulação de checklist de bracket (§6.2) — Fases A/B/C já prontas.
+**Duas correções mais no mesmo dia, depois do Diogo apanhar 3 Equipment
+na lista de corte (Colossus Hammer, Hero's Heirloom, Conqueror's
+Flail):**
+- **`synergy-X` marca quem gosta de X, não X em si** — o eixo premiava
+  cartas que se dão bem com equipment (Sram) e cortava o próprio
+  equipment. Corrigido com `countTypeAxisOverlap`
+  (`recommendation-score.js`): para cada `synergy-X` do eixo, procura a
+  palavra depois de "synergy-" como palavra inteira no `type_line` —
+  sem lista de tipos escrita à mão. Só cobre tipo/subtipo literal
+  (`equipment`, `artifact`, `vehicle`...); `synergy-graveyard`/
+  `synergy-historic` (mecânica, não tipo) ficam sem cobertura, aberto no
+  §12.
+- **`Conqueror's Flail`** ("opponents can't cast spells during your
+  turn") não batia em nenhum papel — a única disrupção do Limit Break
+  ficava sem proteção. `silence` acrescentado a Disrupção (§7.1),
+  verificado por leitura direta de 36 cartas reais (função, não teste de
+  convergência — essa técnica é para tags ambíguas tipo fog, `silence`
+  não é). Disrupção do Limit Break passa de 0 para 1.
+
+Testado contra o Limit Break real depois das duas correções: `Conqueror's
+Flail` protegida (equipment + única disrupção), nenhum Equipment na lista
+de corte, `Hellkite Tyrant`/`Tifa` continuam protegidas.
+
+**Pendente:** validação do Diogo sobre a lista de corte/adição atualizada
+antes de avançar para a Fase D. Só depois disto: Fase D (LLM,
+reordenação e justificação sobre o top ~40) e a simulação de checklist
+de bracket (§6.2) — Fases A/B/C já prontas.
 
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):

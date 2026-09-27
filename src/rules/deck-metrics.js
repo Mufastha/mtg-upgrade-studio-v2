@@ -148,6 +148,15 @@ const DISRUPTION_TAG_PREFIXES = ['counterspell'];
 // mesma família conceptual do mass-land-denial já presente aqui, e liga
 // diretamente à checklist de bracket (§6) - decisão por categoria, não
 // por concentração.
+// silence entrou em 27 de setembro de 2026 - verificado por leitura direta
+// (função, não forma: o nome já é o efeito, ao contrário de fog/pseudo-fog),
+// não pelo teste de convergência por co-ocorrência (esse serve para testar
+// se uma tag É ambígua sozinha; "silence" não é - as 36 cartas reais lidas
+// são todas variações de "opponents can't cast spells", incluindo a
+// própria carta Silence). Descoberto ao investigar Conqueror's Flail, cujo
+// "opponents can't cast spells during your turn" não batia em nenhum papel
+// - único caso de disrupção do Limit Break, devia estar protegido e não
+// estava por esta lacuna, não por bug no mecanismo de proteção.
 const DISRUPTION_EXACT_TAGS = new Set([
   'discard',
   'cost-increaser',
@@ -157,6 +166,7 @@ const DISRUPTION_EXACT_TAGS = new Set([
   'prevent-cast',
   'stasis',
   'mass-land-denial',
+  'silence',
   'lockdown-land',
 ]);
 

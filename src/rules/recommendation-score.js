@@ -40,13 +40,43 @@ function countOverlap(cardTags, planTagList) {
   return cardTags.reduce((n, t) => n + (set.has(t) ? 1 : 0), 0);
 }
 
+// "synergy-X" marca cartas que se dão bem com X (Sram, Sigarda's Aid para
+// synergy-equipment) - o X em si (Colossus Hammer, um Equipment) não
+// carrega a tag, tem o TIPO. Sem isto, o eixo premeia quem gosta de
+// equipment e corta o próprio equipment - encontrado a testar o Cloud
+// (Colossus Hammer/Hero's Heirloom/Conqueror's Flail cortados por "sem
+// sinergia", exatamente as cartas centrais do arquétipo).
+//
+// Generaliza sem lista de tipos escrita à mão: extrai a palavra depois de
+// "synergy-" e procura-a como palavra inteira no type_line. Isto só
+// acerta quando a palavra É mesmo um tipo/subtipo real (equipment,
+// artifact, vehicle, aura, instant, sorcery...) - synergy-graveyard,
+// synergy-red, synergy-historic nunca batem por esta via, porque
+// "graveyard"/"red"/"historic" nunca aparecem literalmente num type_line;
+// ficam de fora, sem cobertura, não como falso positivo. Não resolve
+// esses casos - fica registado como limite conhecido (§12).
+function typeLineWords(typeLine) {
+  return new Set((typeLine ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean));
+}
+
+function countTypeAxisOverlap(typeLine, axisTags) {
+  const synergyTypeWords = axisTags
+    .filter((t) => t.startsWith('synergy-'))
+    .map((t) => t.slice('synergy-'.length));
+  if (synergyTypeWords.length === 0) return 0;
+  const words = typeLineWords(typeLine);
+  return synergyTypeWords.reduce((n, w) => n + (words.has(w) ? 1 : 0), 0);
+}
+
 export function scoreCard(card, gamePlan, weights = DEFAULT_WEIGHTS) {
   const { axis, role } = splitPlanTags(gamePlan?.synergy_tags);
-  const axisOverlap = countOverlap(card.oracle_tags, axis);
+  const axisTagOverlap = countOverlap(card.oracle_tags, axis);
+  const axisTypeOverlap = countTypeAxisOverlap(card.type_line, axis);
+  const axisOverlap = axisTagOverlap + axisTypeOverlap;
   const roleOverlap = countOverlap(card.oracle_tags, role);
   const avoidOverlap = countOverlap(card.oracle_tags, gamePlan?.avoid_tags ?? []);
   const score = weights.axis * axisOverlap + weights.role * roleOverlap - weights.avoid * avoidOverlap;
-  return { score, axisOverlap, roleOverlap, avoidOverlap };
+  return { score, axisOverlap, roleOverlap, avoidOverlap, axisTagOverlap, axisTypeOverlap };
 }
 
 // Elegibilidade de corte a partir das métricas do §7.1 - desempata por

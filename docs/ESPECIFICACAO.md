@@ -567,7 +567,7 @@ tautológico).
 | Draw | `draw-engine`, `repeatable-pure-draw`, `pure-draw`, `burst-draw`, `force-draw`, `repeatable-draw`, `repeatable-loot`, `loot`, `curiosity`, `wheel-symmetrical` — cartas que chegam à **mão** | 8 |
 | Remoção | `spot-removal`, `removal-creature/destroy/exile/toughness/nonland/sacrifice/artifact/land/enchantment/permanent/planeswalker/fight/aura/equipment/noncreature/vehicle/battle/nonenchantment/spacecraft`, `swap-removal`, `repeatable-removal`, `sweeper*`, `burn-any`, `burn-creature`, `burn-planeswalker`, `burn-with-set-s-mechanic`, `bombard`, `banish`, `lockdown-creature` — respostas **permanentes/duras** | 8 |
 | Proteção | prefixo `protects-`, `gives-protection`, `gains-protection` — proteger o que já tens em jogo | 3 |
-| Disrupção | prefixo `counterspell`, `discard`, `cost-increaser`, `cast-tax`, `tax-attack`, `tax-block`, `prevent-cast`, `stasis`, `mass-land-denial`, `lockdown-land` — negar recursos/ações ao adversário | 2 |
+| Disrupção | prefixo `counterspell`, `discard`, `cost-increaser`, `cast-tax`, `tax-attack`, `tax-block`, `prevent-cast`, `stasis`, `mass-land-denial`, `lockdown-land`, `silence` — negar recursos/ações ao adversário | 2 |
 | Interação/Resposta | `removal-bounce`, `removal-tuck`, `freeze-creature`, prefixo `tapper-` — responder sem remover nem proteger (tap em massa, bounce, tuck) | 2 |
 | Fecho de jogo | só `alternate-win-condition` — único sinal explícito da Scryfall para "ganha o jogo fora do combate normal"; não existe tag genérica "finisher"/"wincon". Fase 5: + combos do Commander Spellbook cujo resultado seja dano/vida em massa ou "win the game" (§12) | 1 |
 | Amplificadores | `extra-combat-phase` (fase de combate — não confundir com turno extra, critério diferente da checklist de bracket, §6), `anthem` (+X/+X real; `keyword-anthem`, que só concede keywords, fica de fora), `storm-like`, `storm-count-matters` — acelera um plano já existente, não fecha nada por si | 2 |
@@ -587,6 +587,19 @@ Remoção; `freeze-creature` (84%, n=171) em Interação/Resposta; `curiosity`
 por concentração). `burn-self` e `bombard-self` ficaram de fora por razão
 conceptual, não de amostra: queimar as próprias criaturas não remove nada
 do adversário.
+
+**`silence` adicionado a Disrupção em 27 de setembro de 2026** —
+verificado por leitura direta de texto real (36 cartas: Xantid Swarm,
+Marisi, Wardscale Dragon, Orim's Chant, Render Silent, a própria carta
+*Silence*...), não pelo teste de convergência por co-ocorrência: essa
+técnica serve para saber se uma tag é AMBÍGUA sozinha (fog/pseudo-fog);
+`silence` não é — é uma tag de função, o nome já é o efeito ("opponents
+can't cast spells"), como `discard`/`stasis`/`mass-land-denial` já na
+tabela, nenhuma dessas passou pelo teste de convergência também.
+Descoberto ao investigar `Conqueror's Flail` no Limit Break, cujo "your
+opponents can't cast spells during your turn" não batia em nenhum papel
+— a única fonte de disrupção do deck ficava sem proteção de anulação por
+não estar classificada, não por falha no mecanismo de proteção em si.
 
 **Revisão futura** — tags-irmãs do mesmo prefixo que dispersaram só por
 amostra pequena (n<25), a reavaliar quando o catálogo crescer, nunca
@@ -723,15 +736,16 @@ botão que expande a lista de cartas que a compõe. Texto simples, sem
 gráficos. Uma carta classificada com incerteza (acima) aparece marcada nessa
 lista — não some dentro da contagem como se fosse uma classificação normal.
 
-Testado contra o Limit Break real (5 de setembro de 2026, depois da
-correção de Draw/Acesso Temporário): 37 terrenos, 41 fontes de mana, ramp
-11, draw 9, remoção 9, proteção 8, disrupção 0, interação/resposta 3,
-fecho de jogo 1 (Hellkite Tyrant), amplificadores 1 (Tifa, Martial
-Artist), acesso temporário 3 (`Cait Sith, Fortune Teller`, `Furious
-Rise`, `Professional Face-Breaker` — sem alvo, medido e mostrado, sem
-entrar em "papéis em falta"). **Papéis em falta: disrupção (0 de 2) e
-amplificadores (1 de 2)** — draw desceu de 12 para 9 com a correção, mas
-continua acima do alvo de 8, não entra na lista de papéis em falta.
+Testado contra o Limit Break real (27 de setembro de 2026, depois da
+adição de `silence` a Disrupção): 37 terrenos, 41 fontes de mana, ramp
+11, draw 9, remoção 9, proteção 8, **disrupção 1** (`Conqueror's Flail`),
+interação/resposta 3, fecho de jogo 1 (Hellkite Tyrant), amplificadores 1
+(Tifa, Martial Artist), acesso temporário 3 (`Cait Sith, Fortune Teller`,
+`Furious Rise`, `Professional Face-Breaker` — sem alvo, medido e
+mostrado, sem entrar em "papéis em falta"). **Papéis em falta: disrupção
+(1 de 2) e amplificadores (1 de 2)** — draw desceu de 12 para 9 com a
+correção de 5 de setembro, mas continua acima do alvo de 8, não entra na
+lista de papéis em falta.
 
 **7.2 Declarada (formulário).** Define o **plano de jogo** do deck — o que a
 Fase C do §8 usa para pontuar cada carta. Semeado automaticamente a partir das
@@ -920,6 +934,31 @@ várias trocas do mesmo lote em conjunto. Se o lote cortasse vários
 terrenos ao mesmo tempo (não aconteceu no Limit Break, só havia 1 de
 folga), cada um seria avaliado como "legítimo" isoladamente sem saber que
 os outros já gastaram a folga. Aberto no §12.
+
+**Segundo achado, corrigido no mesmo dia: `synergy-X` marca quem gosta de
+X, não X em si — o eixo cortava o próprio arquétipo.** Colossus Hammer,
+Hero's Heirloom e Conqueror's Flail (todos `Artifact — Equipment`) foram
+propostos para corte por "sem sinergia" num deck cujo eixo é
+`synergy-equipment`/`quick-equip` — as três cartas centrais do
+arquétipo. Causa: `synergy-equipment` está em Sram/Sigarda's Aid/Brass
+Squire (cartas que **se dão bem** com equipment), nunca no próprio
+Equipment. **Corrigido** (`countTypeAxisOverlap`,
+`recommendation-score.js`): para cada `synergy-X` do eixo genuíno,
+extrai-se a palavra depois de "synergy-" e procura-se como palavra
+inteira no `type_line` da carta — sem lista de tipos escrita à mão. Isto
+só acerta quando a palavra é mesmo um tipo/subtipo real (`equipment`,
+`artifact`, `vehicle`, `aura`, `instant`, `sorcery`...); `synergy-graveyard`,
+`synergy-red`, `synergy-historic` nunca batem por esta via, porque essas
+palavras nunca aparecem literalmente num `type_line` — ficam **sem
+cobertura**, não como falso positivo. Registado como limite conhecido no
+§12: o pedido do Diogo era generalizar para "cartas com mecânicas de X"
+(ex. cemitério), que este mecanismo não cobre — só cobre tipo/subtipo
+literal.
+
+`Conqueror's Flail` acumula os dois achados: além de ganhar eixo por
+tipo (Equipment), é a única fonte de disrupção do deck (`silence`, acima)
+— fica **protegida**, nunca candidata a corte, por duas razões
+independentes que já eram cada uma suficiente sozinha.
 
 **Fase D — Reordenação e justificação (LLM).** Apenas sobre o top ~40. Devolve
 ordenação, justificação por carta e pares adição/corte propostos. Todo o output
@@ -1135,6 +1174,17 @@ sem saber dos outros do mesmo lote. Não aconteceu no Limit Break (só
 havia 1 terreno de folga, nunca proposto mais que isso de uma vez), mas
 é uma lacuna real para decks com folgas maiores. Descoberto a testar a
 Fase C contra dados reais, 27 de setembro de 2026.
+
+**Aberto:** o casamento `synergy-X` → `type_line` (§8) só cobre X que seja
+um tipo/subtipo literal (equipment, artifact, vehicle...) — não cobre
+"cartas com mecânica de X" quando X não é um tipo (`synergy-graveyard`,
+`synergy-historic`). Generalizar para mecânicas exigiria uma segunda
+correspondência por eixo (ex. `synergy-graveyard` → tags de recursão/mill
+já catalogadas nesta especificação), não um mecanismo genérico único —
+por decidir se compensa, ou se fica para o Diogo curar manualmente
+adicionando essas tags ao eixo do plano. Descoberto ao corrigir
+Colossus Hammer/Hero's Heirloom/Conqueror's Flail, 27 de setembro de
+2026.
 
 **Trabalho futuro:** catálogo de precons no builder, a partir do
 `taw/magic-preconstructed-decks-data` ou do MTGJSON. Hoje o campo "É um deck
