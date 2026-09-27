@@ -34,10 +34,10 @@ function splitPlanTags(synergyTags) {
   return { axis, role };
 }
 
-function countOverlap(cardTags, planTagList) {
-  if (planTagList.length === 0) return 0;
+function matchedTags(cardTags, planTagList) {
+  if (planTagList.length === 0) return [];
   const set = new Set(planTagList);
-  return cardTags.reduce((n, t) => n + (set.has(t) ? 1 : 0), 0);
+  return cardTags.filter((t) => set.has(t));
 }
 
 // "synergy-X" marca cartas que se dão bem com X (Sram, Sigarda's Aid para
@@ -59,24 +59,41 @@ function typeLineWords(typeLine) {
   return new Set((typeLine ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean));
 }
 
-function countTypeAxisOverlap(typeLine, axisTags) {
+function matchedTypeAxisWords(typeLine, axisTags) {
   const synergyTypeWords = axisTags
     .filter((t) => t.startsWith('synergy-'))
     .map((t) => t.slice('synergy-'.length));
-  if (synergyTypeWords.length === 0) return 0;
+  if (synergyTypeWords.length === 0) return [];
   const words = typeLineWords(typeLine);
-  return synergyTypeWords.reduce((n, w) => n + (words.has(w) ? 1 : 0), 0);
+  return synergyTypeWords.filter((w) => words.has(w));
 }
 
+// Devolve, além da contagem, as tags/palavras que realmente bateram - a
+// justificação do §8 Fase D precisa de dizer O QUÊ, não só "pontuou mais"
+// (Diogo, 27 de setembro de 2026: "uma carta com score 15 contra 0 não
+// me diz nada se eu não perceber a troca").
 export function scoreCard(card, gamePlan, weights = DEFAULT_WEIGHTS) {
   const { axis, role } = splitPlanTags(gamePlan?.synergy_tags);
-  const axisTagOverlap = countOverlap(card.oracle_tags, axis);
-  const axisTypeOverlap = countTypeAxisOverlap(card.type_line, axis);
-  const axisOverlap = axisTagOverlap + axisTypeOverlap;
-  const roleOverlap = countOverlap(card.oracle_tags, role);
-  const avoidOverlap = countOverlap(card.oracle_tags, gamePlan?.avoid_tags ?? []);
+  const axisTagsMatched = matchedTags(card.oracle_tags, axis);
+  const axisTypeMatched = matchedTypeAxisWords(card.type_line, axis);
+  const axisOverlap = axisTagsMatched.length + axisTypeMatched.length;
+  const roleTagsMatched = matchedTags(card.oracle_tags, role);
+  const roleOverlap = roleTagsMatched.length;
+  const avoidTagsMatched = matchedTags(card.oracle_tags, gamePlan?.avoid_tags ?? []);
+  const avoidOverlap = avoidTagsMatched.length;
   const score = weights.axis * axisOverlap + weights.role * roleOverlap - weights.avoid * avoidOverlap;
-  return { score, axisOverlap, roleOverlap, avoidOverlap, axisTagOverlap, axisTypeOverlap };
+  return {
+    score,
+    axisOverlap,
+    roleOverlap,
+    avoidOverlap,
+    axisTagOverlap: axisTagsMatched.length,
+    axisTypeOverlap: axisTypeMatched.length,
+    axisTagsMatched,
+    axisTypeMatched,
+    roleTagsMatched,
+    avoidTagsMatched,
+  };
 }
 
 // Elegibilidade de corte a partir das métricas do §7.1 - desempata por
@@ -149,6 +166,18 @@ function computeCutTiers(deckCards, cardsByOracleId, overrides = []) {
 
 const TIER_ORDER = { 'primeira-a-sair': 0, legitima: 1, 'sem-folga': 2 };
 
+// Confiança do corte, para o Diogo poder tratar as duas de forma
+// diferente (27 de setembro de 2026): "primeira-a-sair" não depende de
+// nenhum alvo escrito à mão - sem papel, sem sinergia, corte de baixo
+// risco. "legítima"/"sem-folga" dependem da folga contra o alvo do §7.1
+// (ainda por calibrar, §12) - a mesma decisão que troca ramp/remoção por
+// uma criatura nova é a mais arriscada da lista, teu comentário.
+export const CONFIDENCE_BY_TIER = {
+  'primeira-a-sair': 'alta',
+  legitima: 'média — depende de um alvo do §7.1 (§12, ainda por validar)',
+  'sem-folga': 'média — depende de um alvo do §7.1 (§12, ainda por validar)',
+};
+
 function classifyTier(cutInfo, planScore) {
   if (cutInfo.occupiedRoles.length === 0 && planScore === 0) return 'primeira-a-sair';
   if (cutInfo.minSlack != null && cutInfo.minSlack > 0) return 'legitima';
@@ -178,7 +207,7 @@ export function generateRecommendations(
       const scored = scoreCard(card, gamePlan, weights);
       const cutInfo = cutTiers.get(dc.oracle_id);
       const tier = classifyTier(cutInfo, scored.score);
-      return { card, quantity: dc.quantity, ...scored, ...cutInfo, tier };
+      return { card, quantity: dc.quantity, ...scored, ...cutInfo, tier, confidence: CONFIDENCE_BY_TIER[tier] };
     })
     .filter((e) => !e.isUniqueFiller) // "protegida" - nunca candidata a corte
     .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || a.score - b.score || a.card.name.localeCompare(b.card.name));

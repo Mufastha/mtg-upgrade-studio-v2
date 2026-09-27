@@ -964,6 +964,44 @@ independentes que já eram cada uma suficiente sozinha.
 ordenação, justificação por carta e pares adição/corte propostos. Todo o output
 é validado contra o catálogo (P5).
 
+**Parte determinística implementada em 27 de setembro de 2026**
+(`src/rules/recommendation-justification.js`, `justifyPair`/
+`justifyRecommendations`) — antes de qualquer LLM (invariante 4:
+"determinístico antes do LLM"), porque a justificação tem de vir de
+factos computados, nunca inventados. Por par:
+
+- **Confiança do corte** (`CONFIDENCE_BY_TIER`, `recommendation-score.js`):
+  `alta` quando o tier é "primeira-a-sair" (sem papel, sem sinergia, sem
+  depender de nenhum alvo); `média` quando depende de folga sobre um alvo
+  do §7.1 (ainda por calibrar, §12) — pedido do Diogo para poder tratar
+  as duas de forma diferente, a decisão de trocar ramp/remoção por uma
+  carta nova é mais arriscada do que cortar uma carta sem papel nem
+  sinergia nenhuma.
+- **Que papel sai:** para "primeira-a-sair", "sem papel do §7.1 e sem
+  nenhuma tag do plano"; para as outras, o(s) papel(is) ocupados e a
+  folga sobre o alvo.
+- **Que papel/eixo entra:** as tags de eixo genuíno, as palavras de tipo
+  batidas (equipment, artifact...) e as tags de papel do §7.1 já
+  cobertas que a candidata traz — `scoreCard` (Fase C) passou a devolver
+  as tags/palavras que bateram, não só a contagem, precisamente para
+  isto.
+
+Testado contra o Limit Break real: as primeiras 6 recomendações (sem
+papel nem sinergia) saem com confiança alta; as últimas 4 (folga em
+Ramp/Terrenos/Remoção/Proteção) saem com confiança média, marcadas como
+tal. Um resumo típico: *"Sai Austere Command (ocupa Remoção, folga de 1
+sobre o alvo) [...]. Entra Merry, Esquire of Rohan (ganha: eixo do plano
+attacking-matters/synergy-equipment; papel do §7.1 já coberto: Draw)"* —
+mostra que a troca não é remoção-por-remoção, é remoção-com-folga por
+eixo+draw, informação que o score sozinho (15 contra 0) não dava.
+
+**Por implementar, aberto:** a reordenação por LLM em si e a fase de
+"prosa" sobre estes factos — este projeto nunca chamou a Anthropic API
+até agora (`grep` ao repositório não encontra nenhuma integração). Falta
+decidir como a app autentica/chama a API (chave inserida pelo Diogo no
+browser? proxy?) antes de implementar essa parte; a parte determinística
+acima já cobre o "porquê" sem precisar de LLM nenhum.
+
 **Cortes.** Um deck de 100 cartas não aceita adições sem remoções. A engine
 propõe pares; o corte é sempre decisão do utilizador; cartas em `untouchable`
 nunca aparecem como corte.
@@ -1133,8 +1171,11 @@ nenhuma carta recomendada quebra uma barreira do bracket alvo, e as recomendaç�
 para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 
 ### Fase 5 — Reordenação e integrações
-- Fase D (§8): reordenação e justificações
-- Pares adição/corte
+- Fase D (§8): reordenação e justificações — ~~parte determinística
+  (justificação por papel/eixo, confiança do corte)~~ **já feita**, 27 de
+  setembro de 2026, ver nota em §8; reordenação por LLM em si por
+  implementar, depende de decidir como a app chama a Anthropic API
+- Pares adição/corte — já gerados desde a Fase C (§8)
 - Combos via Commander Spellbook
 - Link HXDEC para o EDHPowerLevel (a confirmar)
 

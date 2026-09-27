@@ -187,10 +187,34 @@ Testado contra o Limit Break real depois das duas correções: `Conqueror's
 Flail` protegida (equipment + única disrupção), nenhum Equipment na lista
 de corte, `Hellkite Tyrant`/`Tifa` continuam protegidas.
 
-**Pendente:** validação do Diogo sobre a lista de corte/adição atualizada
-antes de avançar para a Fase D. Só depois disto: Fase D (LLM,
-reordenação e justificação sobre o top ~40) e a simulação de checklist
-de bracket (§6.2) — Fases A/B/C já prontas.
+**Lista aprovada pelo Diogo — Fase D iniciada, 27 de setembro de 2026.**
+Parte determinística implementada primeiro, por ser a que dá o "porquê"
+sem precisar de LLM nenhum (`src/rules/recommendation-justification.js`,
+`justifyPair`/`justifyRecommendations`):
+- **Confiança do corte** (`CONFIDENCE_BY_TIER`,
+  `recommendation-score.js`) — `alta` para "primeira-a-sair" (sem papel,
+  sem sinergia), `média` para cortes por folga (dependem de um alvo do
+  §7.1 ainda por calibrar) — pedido do Diogo para tratar as duas de
+  forma diferente, trocar ramp/remoção é a decisão mais arriscada da
+  lista.
+- **`scoreCard` (Fase C) passou a devolver as tags/palavras que
+  bateram**, não só a contagem (`axisTagsMatched`, `axisTypeMatched`,
+  `roleTagsMatched`) — a justificação usa isto para dizer que papel sai,
+  que eixo/papel entra, nunca só o número do score.
+- `ROLE_LABELS` centralizado em `deck-metrics.js` (era duplicado em
+  `app.js`).
+
+Testado contra o Limit Break real: confiança alta nas primeiras 6, média
+nas últimas 4 (Ramp/Terrenos/Remoção/Proteção com folga); resumos como
+"Sai Austere Command (ocupa Remoção, folga de 1) [...]. Entra Merry,
+Esquire of Rohan (ganha: eixo attacking-matters/synergy-equipment; papel
+Draw)" — mostra que a troca não é remoção-por-remoção.
+
+**Por implementar, aberto:** a reordenação por LLM em si — este projeto
+nunca chamou a Anthropic API (confirmado, sem integração nenhuma no
+repositório). Falta decidir como a app autentica/chama a API antes de
+implementar essa parte; a parte determinística já cobre o "porquê" sem
+LLM. Depois disto: simulação de checklist de bracket (§6.2).
 
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):

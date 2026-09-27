@@ -459,4 +459,19 @@ export function computeDeckMetrics(deckCards, cardsByOracleId, overrides = []) {
   };
 }
 
-export { ROLE_KEYS, ROLE_TARGETS, LAND_TARGET };
+// Rótulos em português dos papéis - nomes internos em inglês por
+// convenção (ROLE_KEYS). Centralizado aqui para não duplicar entre a UI
+// (app.js) e as justificações do §8 Fase D (recommendation-justification.js).
+const ROLE_LABELS = {
+  ramp: 'Ramp',
+  draw: 'Draw',
+  removal: 'Remoção',
+  protection: 'Proteção',
+  disruption: 'Disrupção',
+  interaction: 'Interação/Resposta',
+  closers: 'Fecho de jogo',
+  amplifiers: 'Amplificadores',
+  access: 'Acesso Temporário',
+};
+
+export { ROLE_KEYS, ROLE_TARGETS, LAND_TARGET, ROLE_LABELS };

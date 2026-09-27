@@ -4,7 +4,7 @@ import { loadExcluded } from './catalog/excluded.js';
 import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows, buildDeckMetrics } from './ui/deck-view.js';
-import { ROLE_KEYS, getEstablishedRoleForTag } from './rules/deck-metrics.js';
+import { ROLE_KEYS, ROLE_LABELS, getEstablishedRoleForTag } from './rules/deck-metrics.js';
 import { seedGamePlan } from './rules/game-plan.js';
 import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
 import { resolveDecklist, saveDeck, renameDeck, deleteDeck, setRoleOverride, saveGamePlan } from './importers/decklist.js';
@@ -52,20 +52,6 @@ const dataStatusEl = document.getElementById('dados-status');
 const MAX_RESULTS = 50;
 const COLLECTION_PAGE_SIZE = 50;
 const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-
-// §7.1 - rótulos em português dos papéis (ROLE_KEYS vem de deck-metrics.js,
-// nomes internos em inglês por convenção).
-const ROLE_LABELS = {
-  ramp: 'Ramp',
-  draw: 'Draw',
-  removal: 'Remoção',
-  protection: 'Proteção',
-  disruption: 'Disrupção',
-  interaction: 'Interação/Resposta',
-  closers: 'Fecho de jogo',
-  amplifiers: 'Amplificadores',
-  access: 'Acesso Temporário',
-};
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
