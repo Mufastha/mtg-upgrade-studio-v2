@@ -30,6 +30,7 @@ export async function buildCatalog(oracleCardsUrl, gamechangerIds) {
       layout: card.layout,
       is_gamechanger: gamechangerIds.has(card.oracle_id),
       edhrec_rank: card.edhrec_rank ?? null,
+      reserved: card.reserved ?? false,
       oracle_tags: [],
       price_eur_min: null,
       price_source_date: null,

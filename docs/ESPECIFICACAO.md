@@ -117,9 +117,13 @@ Campos retidos por carta (o resto é descartado — é isto que torna o ficheiro
 ```
 oracle_id, name, mana_cost, cmc, type_line, oracle_text,
 color_identity, keywords, layout, is_gamechanger,
-edhrec_rank, oracle_tags[], price_eur_min, price_source_date,
+edhrec_rank, reserved, oracle_tags[], price_eur_min, price_source_date,
 price_source_scryfall_id
 ```
+
+`reserved` (booleano, `oracle_cards`, 27 de setembro de 2026) — alimenta
+`exclude_reserved_list` (§5/§8 Fase B), gap fechado no mesmo dia em que foi
+descoberto (§12).
 
 `price_eur_min` = menor `prices.eur` entre todas as impressões não-foil da
 carta. Se não existir preço em EUR, o campo fica nulo e a carta é tratada como
@@ -811,11 +815,45 @@ commander) → 18 288 (exclui as 100 cartas já no deck). Barreiras do
 bracket alvo e enriquecimento por EDHREC (Fase A) ainda não aplicados —
 dependem de `deck_config` (§5), sem UI nem armazenamento ainda.
 
-**Reserved List — gap descoberto ao implementar, registado no §12.** O
-catálogo (§3.1) não guarda o campo `reserved` da Scryfall; o filtro
-`exclude_reserved_list` não tem dados para operar e não foi implementado
-— não é uma omissão silenciosa, é uma lacuna a fechar no catalog-builder
-antes deste filtro poder existir.
+**Reserved List — gap fechado no mesmo dia em que foi descoberto (§12).**
+O catálogo não guardava o campo `reserved` da Scryfall; acrescentado ao
+catalog-builder (§3.1), efetivo no próximo build. O filtro
+`exclude_reserved_list` em si continua por implementar, junto com o resto
+do que depende de `deck_config` (§5).
+
+**Duas descobertas de 27 de setembro de 2026, ainda por decidir — a Fase
+C não avança sem resposta a isto.**
+
+**1. Sobreposição de tags "qualquer uma" dilui-se em papéis genéricos, não
+no eixo do plano.** Testado sobre o pool do Cloud (18 288 candidatas):
+2 456 (13,4%) têm pelo menos uma tag de `synergy_tags`, mas a amostra por
+`edhrec_rank` continua genérica — Fellwar Stone, Thought Vessel, Smothering
+Tithe, Esper Sentinel — porque `draw-engine`/`repeatable-pure-draw`/
+`refund`/`repeatable-treasures` (papéis do §7.1, não o eixo de
+equipamento) dominam por serem categorias muito maiores. Filtrado só a
+`synergy-equipment`/`quick-equip` (o eixo genuíno), o pool cai para 165
+candidatas e **parece mesmo um deck de equipamento**: Sram Senior
+Edificer, Hammer of Nazahn, Stoneforge Mystic, Sigarda's Aid, Ardenn
+Intrepid Archaeologist, Halvar God of Battle, Brass Squire. "Sobreposição
+com o plano" tem de pesar tags diferentemente (ou o eixo específico
+conta mais do que um papel já coberto pelo §7.1), não somar uma
+igual à outra.
+
+**2. `edhrec_rank` é popularidade global, não qualidade dentro da
+identidade de cor ou do plano do deck.** Confirmado na documentação da
+própria Scryfall (`scryfall.com/docs/api/cards`): *"This card's overall
+rank/popularity on EDHREC. Not all cards are ranked."* — um único número
+por carta, sem variante por identidade de cor nem por commander. Polluted
+Delta é o caso visível na amostra do pool (rank #36 globalmente, incolor
+por ser fetch de tipos básicos de terreno, popular em decks azuis/pretos
+onde é das melhores cartas do jogo — nada a ver com Naya), mas o mesmo
+viés existe, menos visivelmente, em qualquer carta cujo rank global venha
+sobretudo de decks fora da identidade de cor do commander. A Scryfall não
+tem alternativa (nem por commander, nem por identidade de cor) — usar
+`edhrec_rank` cru em `w2` significa recomendar cartas populares nos
+decks errados. Sem correção, com um pool de milhares de candidatas o
+termo `w2` reproduziria o EDHREC genérico, precisamente o que a app
+existe para evitar.
 
 **Fase C — Scoring.** Compara cartas do deck com candidatas filtradas pela
 mesma fórmula — não gera candidatas para preencher papéis em falta, mede
@@ -1037,7 +1075,7 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 | Preço estimado diverge do real | Enquadrado como estimativa em toda a UI (P4) |
 | LLM inventa cartas | Validação contra catálogo (P5) |
 | Biblioteca HXDEC não serve | Fallback: copiar e colar, como já é feito hoje |
-| Catálogo não guarda `reserved` (Scryfall) — `exclude_reserved_list` (§5/§8 Fase B) não tem dados para operar | Acrescentar o campo ao catalog-builder (§3.1) antes de implementar o filtro; descoberto a 27 de setembro de 2026 ao implementar as Fases A/B, não aplicado em silêncio |
+| ~~Catálogo não guardava `reserved` (Scryfall)~~ | **Fechado**, 27 de setembro de 2026 — campo acrescentado ao catalog-builder (§3.1), efetivo no próximo build (semanal ou manual). O filtro `exclude_reserved_list` em si continua por implementar, junto com `exclude_tags`/`max_cmc`/barreiras de bracket — todos dependem de `deck_config` (§5), sem UI nem armazenamento ainda |
 
 **Aberto:** valores iniciais dos pesos `w1..w3` do score (§8 Fase C — já
 sliders na UI, não constantes no código) — a calibrar empiricamente

@@ -128,12 +128,30 @@ de implementar: confirmado que o workflow do catálogo (`build-catalog.yml`)
 correu toda semana sem interrupção durante o interregno (GitHub não o
 desativou por inatividade) — catálogo local desatualizado (28 de agosto)
 foi substituído pelo deploy mais recente do Pages (21 de setembro, 53 Game
-Changers) antes de gerar candidatos. **Gap descoberto:** o catálogo não
-guarda o campo `reserved` da Scryfall — `exclude_reserved_list` não pôde
-ser implementado, registado no §12 da especificação.
+Changers) antes de gerar candidatos. **Gap do `reserved` fechado no mesmo
+dia:** campo acrescentado ao catalog-builder (`tools/catalog-builder/lib/
+catalog.mjs`), efetivo no próximo build — o filtro em si continua por
+implementar (depende de `deck_config`, §5).
 
-**Primeiro passo da próxima sessão:** o §8 Fase C (scoring) — Fases A/B já
-prontas, plano de jogo do §7.2 validado pelo Diogo, nada bloqueia começar.
+**Duas descobertas do mesmo dia bloqueiam a Fase C, por decisão do
+Diogo — ver §8 da especificação para o detalhe:**
+1. Sobreposição "qualquer tag do plano" dilui-se em papéis genéricos do
+   §7.1 (draw-engine, refund...) em vez do eixo específico — no Cloud,
+   filtrar só a `synergy-equipment`/`quick-equip` dá um pool que parece
+   mesmo equipment (Sram, Hammer of Nazahn, Stoneforge Mystic); "qualquer
+   sobreposição" dá 2 456 candidatas genéricas, o eixo específico dá 165
+   coerentes. Pesar tags igualmente não chega.
+2. `edhrec_rank` (Scryfall) é popularidade global, sem variante por
+   identidade de cor nem por commander (confirmado na documentação
+   oficial) — Polluted Delta aparecia no pool Naya por ser popular em
+   decks azuis/pretos, não por ser boa ali. Usar `w2` cru com milhares de
+   candidatas reproduziria o EDHREC genérico.
+
+**Primeiro passo da próxima sessão:** decidir com o Diogo (a) se o plano
+filtra a Fase A ou só pontua na Fase C, e (b) como corrigir ou substituir
+`edhrec_rank` como proxy de eficiência — só depois disto implementar a
+Fase C. Não avançar com a fórmula `w1..w3` tal como está escrita no §8
+sem resolver as duas primeiro.
 
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):
