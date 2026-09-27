@@ -17,7 +17,7 @@
 // Scryfall), trazer isso para o score reproduziria o enviesamento que a
 // app existe para evitar. Fica visível ao lado de cada carta, só como
 // informação (decisão do Diogo, 27 de setembro de 2026).
-import { getEstablishedRoleForTag } from './deck-metrics.js';
+import { getEstablishedRoleForTag, computeDeckMetrics, ROLE_TARGETS, LAND_TARGET } from './deck-metrics.js';
 
 // Tentativos - sliders na UI, nunca constantes fixas (§8, §12). Eixo
 // genuíno pesa mais do que papel já coberto por omissão; a relação entre
@@ -49,26 +49,109 @@ export function scoreCard(card, gamePlan, weights = DEFAULT_WEIGHTS) {
   return { score, axisOverlap, roleOverlap, avoidOverlap };
 }
 
-// Compara cartas do deck com candidatas pela MESMA fórmula (§8) - ordena o
-// deck a subir (pior primeiro) e as candidatas a descer (melhor primeiro),
-// empareia pior com melhor. Critério de paragem: maxChanges (§5, ainda
-// sem UI - default explícito aqui, a substituir quando existir), nunca um
-// score alvo. Corte sem substituto nunca acontece - o array de pares é a
-// única saída.
+// Elegibilidade de corte a partir das métricas do §7.1 - desempata por
+// critério de jogo dentro do score de plano, nunca por posição/ordem de
+// inserção (era o que estava a acontecer antes: 72% do Limit Break
+// empatava a 0 e "pior primeiro" virava alfabético). Três categorias
+// (Diogo, 27 de setembro de 2026), decididas sobre papel + folga, nunca
+// sobre edhrec_rank:
+//
+// - "protegida": é a ÚNICA carta do deck a preencher algum papel com
+//   alvo (§7.1) - nunca é candidata a corte, excluída por completo (como
+//   `untouchable`, §5), independentemente do score de plano.
+// - "primeira-a-sair": não ocupa papel nenhum E não tem sinergia com o
+//   plano (score de plano 0) - o topo da fila de corte.
+// - "legítima": ocupa pelo menos um papel com alvo e esse papel tem folga
+//   (contagem do deck > alvo) - corte razoável, o papel continua servido
+//   mesmo depois.
+// - "sem-folga": ocupa papel(is) sem folga (contagem no alvo ou abaixo) e
+//   não é a única - não protegida, mas cortá-la empurra o deck para
+//   `missingRoles`; fica a seguir às legítimas, à frente de nada.
+//
+// "access" (Acesso Temporário) não tem alvo (§7.1) - nunca conta para
+// proteção nem para folga, mas ainda conta como "ocupa papel" para não
+// cair em "primeira-a-sair" à toa.
+//
+// Terrenos têm o próprio alvo (LAND_TARGET, §7.1) fora dos 9 papéis -
+// tratados aqui como um "papel" sintético (`terrenos`) para caírem no
+// mesmo mecanismo de folga/proteção, nunca em "primeira-a-sair": sem
+// isto, todo terreno sem outro papel caía direto no topo do corte só por
+// a métrica de terrenos viver fora de `roleCards` (encontrado a testar
+// contra o Limit Break real - a lista de corte ficou cheia de terrenos).
+function computeCutTiers(deckCards, cardsByOracleId, overrides = []) {
+  const metrics = computeDeckMetrics(deckCards, cardsByOracleId, overrides);
+  const tierByOracleId = new Map();
+  const landSlack = metrics.landCount - LAND_TARGET;
+  const isLandUnique = metrics.landCards.length === 1;
+
+  for (const dc of deckCards) {
+    const card = cardsByOracleId.get(dc.oracle_id);
+    if (!card) continue;
+
+    if (card.type_line.includes('Land')) {
+      tierByOracleId.set(dc.oracle_id, {
+        occupiedRoles: ['terrenos'],
+        isUniqueFiller: isLandUnique,
+        minSlack: landSlack,
+      });
+      continue;
+    }
+
+    const occupiedRoles = Object.keys(metrics.roleCards).filter((role) =>
+      metrics.roleCards[role].some((e) => e.oracle_id === dc.oracle_id)
+    );
+
+    const isUniqueFiller = occupiedRoles.some((role) => {
+      if (ROLE_TARGETS[role] == null) return false;
+      return metrics.roleCards[role].length === 1;
+    });
+
+    const slacks = occupiedRoles
+      .filter((role) => ROLE_TARGETS[role] != null)
+      .map((role) => metrics.roleCounts[role] - ROLE_TARGETS[role]);
+    const minSlack = slacks.length > 0 ? Math.min(...slacks) : null;
+
+    tierByOracleId.set(dc.oracle_id, { occupiedRoles, isUniqueFiller, minSlack });
+  }
+
+  return tierByOracleId;
+}
+
+const TIER_ORDER = { 'primeira-a-sair': 0, legitima: 1, 'sem-folga': 2 };
+
+function classifyTier(cutInfo, planScore) {
+  if (cutInfo.occupiedRoles.length === 0 && planScore === 0) return 'primeira-a-sair';
+  if (cutInfo.minSlack != null && cutInfo.minSlack > 0) return 'legitima';
+  return 'sem-folga';
+}
+
+// Compara cartas do deck com candidatas pela MESMA fórmula de mérito
+// (§8) - as candidatas ordenam-se só por score de plano (melhor
+// primeiro); o corte ordena-se primeiro pela elegibilidade do §7.1
+// (acima), depois por score de plano (pior primeiro) - nunca por posição.
+// Critério de paragem: maxChanges (§5, ainda sem UI - default explícito
+// aqui, a substituir quando existir), nunca um score alvo. Corte sem
+// substituto nunca acontece - o array de pares é a única saída.
 export function generateRecommendations(
   deckCards,
   candidates,
   gamePlan,
   cardsByOracleId,
-  { weights = DEFAULT_WEIGHTS, maxChanges = 10, commanderOracleId = null, untouchableIds = new Set() } = {}
+  { weights = DEFAULT_WEIGHTS, maxChanges = 10, commanderOracleId = null, untouchableIds = new Set(), overrides = [] } = {}
 ) {
+  const cutTiers = computeCutTiers(deckCards, cardsByOracleId, overrides);
+
   const scoredDeck = deckCards
     .filter((dc) => dc.oracle_id !== commanderOracleId && !untouchableIds.has(dc.oracle_id))
     .map((dc) => {
       const card = cardsByOracleId.get(dc.oracle_id);
-      return { card, quantity: dc.quantity, ...scoreCard(card, gamePlan, weights) };
+      const scored = scoreCard(card, gamePlan, weights);
+      const cutInfo = cutTiers.get(dc.oracle_id);
+      const tier = classifyTier(cutInfo, scored.score);
+      return { card, quantity: dc.quantity, ...scored, ...cutInfo, tier };
     })
-    .sort((a, b) => a.score - b.score);
+    .filter((e) => !e.isUniqueFiller) // "protegida" - nunca candidata a corte
+    .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || a.score - b.score || a.card.name.localeCompare(b.card.name));
 
   const scoredCandidates = candidates
     .map((card) => ({ card, ...scoreCard(card, gamePlan, weights) }))

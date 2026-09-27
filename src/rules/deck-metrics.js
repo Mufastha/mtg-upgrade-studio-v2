@@ -449,4 +449,4 @@ export function computeDeckMetrics(deckCards, cardsByOracleId, overrides = []) {
   };
 }
 
-export { ROLE_KEYS };
+export { ROLE_KEYS, ROLE_TARGETS, LAND_TARGET };

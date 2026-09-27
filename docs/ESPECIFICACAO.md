@@ -878,15 +878,48 @@ na implementação atual), não um score alvo.** O Diogo decide quantas
 trocas quer ver; a engine não para porque uma carta "já passou" um
 limiar.
 
-**Achado ao testar contra o Limit Break real, ainda por resolver: 72%
-do deck (67 de 93 cartas, fora o commander) empata em score 0** — nenhuma
-tag do plano do Cloud, incluindo `Arcane Signet` (um dos melhores mana
-rocks do jogo). Entre empatados, a ordem de "pior primeiro" é a ordem de
-inserção (sort estável), não um critério — hoje a engine pode propor
-cortar Arcane Signet só por coincidência de posição, não porque seja pior
-do que outra carta a 0. O score de mérito face ao plano não tem hoje
-nenhuma noção de "boa independentemente do tema" (ramp/remoção/proteção
-fundamentais). Não corrigido ainda — aberto no §12, decisão do Diogo.
+**Achado ao testar contra o Limit Break real: 72% do deck empatava em
+score 0** — nenhuma tag do plano, incluindo `Arcane Signet`. A ordem
+entre empatados era a ordem de inserção (sort estável) — na prática,
+alfabética: `Aerith, Arcane Signet, Ash Barrens, Austere Command,
+Avalanche...`, a engine a propor cortar ramp e um sweeper por acaso do
+alfabeto. **Corrigido no mesmo dia com elegibilidade de corte a partir
+do §7.1** (`computeCutTiers` em `recommendation-score.js`) — desempata
+por critério de jogo, nunca por posição nem por `edhrec_rank`:
+
+- **Protegida** — é a única carta do deck a preencher um papel com alvo
+  (ou o único terreno, tratado como o mesmo mecanismo com `LAND_TARGET`)
+  — nunca é candidata a corte, excluída por completo, como `untouchable`
+  (§5). Confirmado: `Hellkite Tyrant` (único fecho de jogo) e `Tifa,
+  Martial Artist` (única em amplificadores) protegidas no Limit Break.
+- **Primeira-a-sair** — não ocupa papel nenhum (nem terrenos) e tem score
+  de plano 0 — topo da fila de corte.
+- **Legítima** — ocupa papel(is) com folga (contagem do deck acima do
+  alvo) — corte razoável, o papel continua servido. `Arcane Signet`
+  cai aqui (Ramp tem folga de 3): deixa de ser candidata a corte
+  enquanto houver "primeira-a-sair" por cortar, mas nunca fica excluída
+  como as protegidas.
+- **Sem folga** — ocupa papel(is) sem folga e não é a única — nem
+  protegida nem prioritária, fica por último entre as não-protegidas.
+
+Dentro do mesmo grau (empatadas em tier e em score de plano), o
+desempate final é por nome — determinístico e documentado como último
+recurso (reprodutibilidade, P7), nunca o critério principal.
+
+**Gap encontrado a testar isto:** terrenos vivem fora de `roleCards`
+(têm o próprio alvo, `LAND_TARGET`, §7.1) — sem tratamento especial,
+todo terreno sem outro papel caía em "primeira-a-sair" só por essa
+métrica viver noutro sítio, e a primeira versão do corte ficou cheia de
+terrenos (`Battlefield Forge`, `Brushland`, `Canopy Vista`...). Corrigido
+tratando terrenos como mais um "papel" sintético no mesmo mecanismo,
+antes de mostrar o resultado ao Diogo.
+
+**Limite conhecido, não resolvido:** a elegibilidade é calculada sobre o
+estado *atual* do deck, carta a carta — não simula o efeito de aplicar
+várias trocas do mesmo lote em conjunto. Se o lote cortasse vários
+terrenos ao mesmo tempo (não aconteceu no Limit Break, só havia 1 de
+folga), cada um seria avaliado como "legítimo" isoladamente sem saber que
+os outros já gastaram a folga. Aberto no §12.
 
 **Fase D — Reordenação e justificação (LLM).** Apenas sobre o top ~40. Devolve
 ordenação, justificação por carta e pares adição/corte propostos. Todo o output
@@ -1049,10 +1082,10 @@ linhas rejeitadas.
   27 de setembro de 2026. Ver nota em §8.
 - ~~Fase C (§8): scoring~~ — **já feito**, 27 de setembro de 2026. Ver
   nota em §8. Testado contra o Limit Break real (10 pares corte/adição
-  gerados) — **achado por resolver:** 72% do deck empata em score 0
-  (§8, §12), a ordem entre empatados não é hoje um critério. Fases A/B/C
-  por si só não são a fase aceite (falta simulação de bracket, Supabase,
-  e resolver o empate) — marcadas para não se perder o progresso.
+  gerados, sem terrenos nem ramp fundamental na lista de corte — elegibilidade
+  a partir do §7.1 resolveu o empate de 72% em score 0 no mesmo dia). Fases
+  A/B/C por si só não são a fase aceite (falta simulação de bracket e
+  Supabase) — marcadas para não se perder o progresso.
 - Simulação de checklist projetada (§6.2)
 - Sincronização Supabase dos dados pessoais
 
@@ -1086,13 +1119,21 @@ score (§8 Fase C — já sliders na UI, não constantes no código) — a
 calibrar empiricamente comparando recomendações com o julgamento do
 Diogo, Fase 4 contra o Shelob, que ele já conhece a fundo.
 
-**Aberto:** 72% do Limit Break empata em score 0 (§8) — o score de mérito
-face ao plano não distingue, dentro do empate, uma carta fundamental
-independentemente do tema (`Arcane Signet`) de uma carta genuinamente
-substituível. Ordem entre empatados é hoje a ordem de inserção, não um
-critério. Por decidir: usar `edhrec_rank` só como desempate de exibição
-(nunca do score em si), proteger cartas que são a única a preencher um
-papel do §7.1 dentro do empate, ou outra ideia — descoberto a testar a
+~~**Aberto:** 72% do Limit Break empata em score 0 (§8)~~ — **Fechado**,
+27 de setembro de 2026, com elegibilidade de corte a partir do §7.1
+(protegida/primeira-a-sair/legítima/sem-folga — ver §8). `edhrec_rank`
+continua fora de qualquer critério de ordenação, mesmo como desempate —
+decisão do Diogo, popularidade fora da identidade de cor não informa
+nada mesmo só para desempatar.
+
+**Aberto:** a elegibilidade de corte do §8 avalia cada carta isoladamente
+contra o estado *atual* do deck — não simula o efeito de cortar várias
+cartas do mesmo lote em conjunto. Um lote que proponha cortar vários
+terrenos (ou várias cartas do mesmo papel) ao mesmo tempo pode gastar
+toda a folga sem a engine dar por isso, porque cada corte é avaliado
+sem saber dos outros do mesmo lote. Não aconteceu no Limit Break (só
+havia 1 terreno de folga, nunca proposto mais que isso de uma vez), mas
+é uma lacuna real para decks com folgas maiores. Descoberto a testar a
 Fase C contra dados reais, 27 de setembro de 2026.
 
 **Trabalho futuro:** catálogo de precons no builder, a partir do

@@ -144,18 +144,30 @@ saiu do score — fica só como informação ao lado de cada carta. Testado
 contra o Limit Break real: 10 pares corte/adição gerados, ordenados
 corretamente (nenhuma candidata pontua pior do que a carta cortada).
 
-**Achado a resolver antes de fechar a Fase 4 (registado no §8/§12):** 72%
-do deck (67 de 93 cartas) empata em score 0, incluindo `Arcane Signet`
-(um dos melhores mana rocks do jogo, sem tag do plano do Cloud) — a
-ordem entre empatadas é hoje a ordem de inserção, não um critério. O
-score de mérito face ao plano não protege hoje uma carta boa
-independentemente do tema.
+**Empate de 72% em score 0 resolvido no mesmo dia** com elegibilidade de
+corte a partir do §7.1 (`computeCutTiers` em `recommendation-score.js`,
+detalhe no §8 da especificação): protegida (única a preencher um papel
+ou o único terreno — nunca candidata, `Hellkite Tyrant`/`Tifa` no Limit
+Break) / primeira-a-sair (sem papel nenhum, sem sinergia) / legítima
+(papel com folga — `Arcane Signet` cai aqui) / sem-folga. `edhrec_rank`
+continua fora de qualquer critério, mesmo como desempate. **Gap
+encontrado e corrigido no processo:** terrenos vivem fora de `roleCards`
+(têm `LAND_TARGET` próprio) — sem tratamento especial caíam todos em
+"primeira-a-sair" e a primeira lista de corte ficou cheia de terrenos;
+tratados como mais um "papel" sintético antes de fechar. Testado contra
+o Limit Break real: 10 pares corte/adição, nenhum terreno nem ramp
+fundamental na lista.
 
-**Primeiro passo da próxima sessão:** decidir com o Diogo como desempatar
-os 72% em score 0 antes de gerar recomendações "a sério" — ideias já
-registadas no §12 (desempate por `edhrec_rank` só na exibição, proteger a
-única carta de um papel do §7.1 dentro do empate). Depois disto: Fase D
-(LLM) e a simulação de checklist de bracket.
+**Limite conhecido, aberto no §12:** a elegibilidade avalia cada carta
+isoladamente contra o estado atual do deck, não simula cortar várias do
+mesmo papel/terrenos em conjunto no mesmo lote — não é um problema no
+Limit Break (só havia 1 terreno de folga), mas é uma lacuna real para
+decks com folgas maiores.
+
+**Pendente:** validação do Diogo sobre a nova lista de corte/adição do
+Cloud (com a elegibilidade do §7.1) antes de avançar para a Fase D. Só
+depois disto: Fase D (LLM, reordenação e justificação sobre o top ~40) e
+a simulação de checklist de bracket (§6.2) — Fases A/B/C já prontas.
 
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):
