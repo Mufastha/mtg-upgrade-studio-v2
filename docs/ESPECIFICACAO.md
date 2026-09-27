@@ -821,55 +821,44 @@ catalog-builder (§3.1), efetivo no próximo build. O filtro
 `exclude_reserved_list` em si continua por implementar, junto com o resto
 do que depende de `deck_config` (§5).
 
-**Duas descobertas de 27 de setembro de 2026, ainda por decidir — a Fase
-C não avança sem resposta a isto.**
+**Duas descobertas de 27 de setembro de 2026, decididas no mesmo dia —
+ver justificação e dados na versão anterior deste documento (git log).**
 
-**1. Sobreposição de tags "qualquer uma" dilui-se em papéis genéricos, não
-no eixo do plano.** Testado sobre o pool do Cloud (18 288 candidatas):
-2 456 (13,4%) têm pelo menos uma tag de `synergy_tags`, mas a amostra por
-`edhrec_rank` continua genérica — Fellwar Stone, Thought Vessel, Smothering
-Tithe, Esper Sentinel — porque `draw-engine`/`repeatable-pure-draw`/
-`refund`/`repeatable-treasures` (papéis do §7.1, não o eixo de
-equipamento) dominam por serem categorias muito maiores. Filtrado só a
-`synergy-equipment`/`quick-equip` (o eixo genuíno), o pool cai para 165
-candidatas e **parece mesmo um deck de equipamento**: Sram Senior
-Edificer, Hammer of Nazahn, Stoneforge Mystic, Sigarda's Aid, Ardenn
-Intrepid Archaeologist, Halvar God of Battle, Brass Squire. "Sobreposição
-com o plano" tem de pesar tags diferentemente (ou o eixo específico
-conta mais do que um papel já coberto pelo §7.1), não somar uma
-igual à outra.
+1. Sobreposição de tags "qualquer uma" dilui-se em papéis genéricos do
+   §7.1, não no eixo do plano — testado sobre o pool do Cloud (18 288
+   candidatas): filtrado ao eixo específico (`synergy-equipment`/
+   `quick-equip`), o pool cai de 2 456 para 165 e passa a parecer mesmo um
+   deck de equipamento. **Decisão: o plano pontua, nunca filtra a Fase A**
+   (filtrar excluiria remoção/proteção/terrenos de que o deck precisa sem
+   ligação ao tema) — mas as `synergy_tags` do plano dividem-se em duas
+   contagens pesadas separadamente, nunca somadas ao mesmo peso: **eixo
+   genuíno** (tags que não são papel do §7.1) e **papel já coberto**
+   (tags que já são papel, via `getEstablishedRoleForTag`, §7.2).
+2. `edhrec_rank` é popularidade global, sem variante por identidade de
+   cor nem por commander (confirmado na documentação da própria
+   Scryfall). **Decisão: sai do score.** A ordenação por mérito face ao
+   plano já é critério suficiente; `edhrec_rank` fica visível ao lado de
+   cada carta, só como informação.
 
-**2. `edhrec_rank` é popularidade global, não qualidade dentro da
-identidade de cor ou do plano do deck.** Confirmado na documentação da
-própria Scryfall (`scryfall.com/docs/api/cards`): *"This card's overall
-rank/popularity on EDHREC. Not all cards are ranked."* — um único número
-por carta, sem variante por identidade de cor nem por commander. Polluted
-Delta é o caso visível na amostra do pool (rank #36 globalmente, incolor
-por ser fetch de tipos básicos de terreno, popular em decks azuis/pretos
-onde é das melhores cartas do jogo — nada a ver com Naya), mas o mesmo
-viés existe, menos visivelmente, em qualquer carta cujo rank global venha
-sobretudo de decks fora da identidade de cor do commander. A Scryfall não
-tem alternativa (nem por commander, nem por identidade de cor) — usar
-`edhrec_rank` cru em `w2` significa recomendar cartas populares nos
-decks errados. Sem correção, com um pool de milhares de candidatas o
-termo `w2` reproduziria o EDHREC genérico, precisamente o que a app
-existe para evitar.
-
-**Fase C — Scoring.** Compara cartas do deck com candidatas filtradas pela
-mesma fórmula — não gera candidatas para preencher papéis em falta, mede
-mérito face ao **plano de jogo** do commander (§7.2):
+**Fase C — Scoring, implementada em 27 de setembro de 2026**
+(`src/rules/recommendation-score.js`, `scoreCard` + `generateRecommendations`).
+Compara cartas do deck com candidatas filtradas pela mesma fórmula — não
+gera candidatas para preencher papéis em falta, mede mérito face ao
+**plano de jogo** do commander (§7.2):
 
 ```
-score(carta, plano) = w1 * sobreposição_de_tags_com_plano.synergy_tags
-                     + w2 * eficiência (proxy: edhrec_rank)
-                     - w3 * sobreposição_com_plano.avoid_tags
+score(carta, plano) = w_eixo * sobreposição_com_tags_de_eixo_genuíno
+                     + w_papel * sobreposição_com_tags_já_papel_do_§7.1
+                     - w_evitar * sobreposição_com_plano.avoid_tags
 ```
 
-Pesos `w1..w3` são **visíveis e ajustáveis na interface** (sliders), nunca
-constantes no código. Ainda não se sabe quanto vale cada termo — só se
-descobre comparando recomendações com o julgamento do Diogo; enterrados no
-código, cada afinação exigiria uma sessão de desenvolvimento em vez de um
-slider (aberto no §12).
+`w_eixo`, `w_papel` e `w_evitar` são **três sliders separados e visíveis
+na interface**, nunca constantes fixas. Valores por omissão (tentativos,
+a calibrar com o julgamento do Diogo): `w_eixo=3`, `w_papel=1`,
+`w_evitar=2` — `w_eixo` pesa mais do que `w_papel` por omissão porque é o
+tema real do plano; a relação entre os dois é precisamente o que se
+afina. **`edhrec_rank` não entra na fórmula** — mostrado ao lado de cada
+carta, nunca como fator do score.
 
 Posse (`Tenho`/`Comprar`/`Proxy`, §9) e preço são **classificação ao lado de
 cada carta, nunca fator do score.** Já ter a carta é custo, não mérito;
@@ -884,9 +873,20 @@ pior com melhor. `missingRoles` do §7.1 fica como aviso estrutural ao lado da
 lista ("30 terrenos é pouco"), nunca como termo do score — um deck já
 equilibrado não pode deixar o motor mudo.
 
-**Critério de paragem: `max_changes` (§5), não um score alvo.** O Diogo
-decide quantas trocas quer ver; a engine não para porque uma carta "já
-passou" um limiar.
+**Critério de paragem: `max_changes` (§5, ainda sem UI — 10 por omissão
+na implementação atual), não um score alvo.** O Diogo decide quantas
+trocas quer ver; a engine não para porque uma carta "já passou" um
+limiar.
+
+**Achado ao testar contra o Limit Break real, ainda por resolver: 72%
+do deck (67 de 93 cartas, fora o commander) empata em score 0** — nenhuma
+tag do plano do Cloud, incluindo `Arcane Signet` (um dos melhores mana
+rocks do jogo). Entre empatados, a ordem de "pior primeiro" é a ordem de
+inserção (sort estável), não um critério — hoje a engine pode propor
+cortar Arcane Signet só por coincidência de posição, não porque seja pior
+do que outra carta a 0. O score de mérito face ao plano não tem hoje
+nenhuma noção de "boa independentemente do tema" (ramp/remoção/proteção
+fundamentais). Não corrigido ainda — aberto no §12, decisão do Diogo.
 
 **Fase D — Reordenação e justificação (LLM).** Apenas sobre o top ~40. Devolve
 ordenação, justificação por carta e pares adição/corte propostos. Todo o output
@@ -1046,9 +1046,13 @@ linhas rejeitadas.
 
 ### Fase 4 — Motor de recomendação
 - ~~Fases A/B (§8): geração de candidatos + filtros duros~~ — **já feito**,
-  27 de setembro de 2026. Ver nota em §8. Fases A/B por si só não são a
-  fase aceite (falta Fase C) — marcadas para não se perder o progresso.
-- Fase C (§8), sem LLM
+  27 de setembro de 2026. Ver nota em §8.
+- ~~Fase C (§8): scoring~~ — **já feito**, 27 de setembro de 2026. Ver
+  nota em §8. Testado contra o Limit Break real (10 pares corte/adição
+  gerados) — **achado por resolver:** 72% do deck empata em score 0
+  (§8, §12), a ordem entre empatados não é hoje um critério. Fases A/B/C
+  por si só não são a fase aceite (falta simulação de bracket, Supabase,
+  e resolver o empate) — marcadas para não se perder o progresso.
 - Simulação de checklist projetada (§6.2)
 - Sincronização Supabase dos dados pessoais
 
@@ -1077,10 +1081,19 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 | Biblioteca HXDEC não serve | Fallback: copiar e colar, como já é feito hoje |
 | ~~Catálogo não guardava `reserved` (Scryfall)~~ | **Fechado**, 27 de setembro de 2026 — campo acrescentado ao catalog-builder (§3.1), efetivo no próximo build (semanal ou manual). O filtro `exclude_reserved_list` em si continua por implementar, junto com `exclude_tags`/`max_cmc`/barreiras de bracket — todos dependem de `deck_config` (§5), sem UI nem armazenamento ainda |
 
-**Aberto:** valores iniciais dos pesos `w1..w3` do score (§8 Fase C — já
-sliders na UI, não constantes no código) — a calibrar empiricamente
-comparando recomendações com o julgamento do Diogo, Fase 4 contra o Shelob,
-que ele já conhece a fundo.
+**Aberto:** valores iniciais dos pesos `w_eixo`/`w_papel`/`w_evitar` do
+score (§8 Fase C — já sliders na UI, não constantes no código) — a
+calibrar empiricamente comparando recomendações com o julgamento do
+Diogo, Fase 4 contra o Shelob, que ele já conhece a fundo.
+
+**Aberto:** 72% do Limit Break empata em score 0 (§8) — o score de mérito
+face ao plano não distingue, dentro do empate, uma carta fundamental
+independentemente do tema (`Arcane Signet`) de uma carta genuinamente
+substituível. Ordem entre empatados é hoje a ordem de inserção, não um
+critério. Por decidir: usar `edhrec_rank` só como desempate de exibição
+(nunca do score em si), proteger cartas que são a única a preencher um
+papel do §7.1 dentro do empate, ou outra ideia — descoberto a testar a
+Fase C contra dados reais, 27 de setembro de 2026.
 
 **Trabalho futuro:** catálogo de precons no builder, a partir do
 `taw/magic-preconstructed-decks-data` ou do MTGJSON. Hoje o campo "É um deck

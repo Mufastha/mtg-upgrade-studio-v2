@@ -133,32 +133,32 @@ dia:** campo acrescentado ao catalog-builder (`tools/catalog-builder/lib/
 catalog.mjs`), efetivo no próximo build — o filtro em si continua por
 implementar (depende de `deck_config`, §5).
 
-**Duas descobertas do mesmo dia bloqueiam a Fase C, por decisão do
-Diogo — ver §8 da especificação para o detalhe:**
-1. Sobreposição "qualquer tag do plano" dilui-se em papéis genéricos do
-   §7.1 (draw-engine, refund...) em vez do eixo específico — no Cloud,
-   filtrar só a `synergy-equipment`/`quick-equip` dá um pool que parece
-   mesmo equipment (Sram, Hammer of Nazahn, Stoneforge Mystic); "qualquer
-   sobreposição" dá 2 456 candidatas genéricas, o eixo específico dá 165
-   coerentes. Pesar tags igualmente não chega.
-2. `edhrec_rank` (Scryfall) é popularidade global, sem variante por
-   identidade de cor nem por commander (confirmado na documentação
-   oficial) — Polluted Delta aparecia no pool Naya por ser popular em
-   decks azuis/pretos, não por ser boa ali. Usar `w2` cru com milhares de
-   candidatas reproduziria o EDHREC genérico.
+**§8 Fase C implementada em 27 de setembro de 2026**
+(`src/rules/recommendation-score.js`, `scoreCard` + `generateRecommendations`),
+resolvendo as duas descobertas do mesmo dia (detalhe no §8 da
+especificação): (a) o plano **pontua, nunca filtra** a Fase A, e as
+`synergy_tags` dividem-se em **eixo genuíno** vs **papel já coberto do
+§7.1** (`getEstablishedRoleForTag`), pesadas por sliders separados
+(`w_eixo=3`, `w_papel=1`, `w_evitar=2`, tentativos); (b) `edhrec_rank`
+saiu do score — fica só como informação ao lado de cada carta. Testado
+contra o Limit Break real: 10 pares corte/adição gerados, ordenados
+corretamente (nenhuma candidata pontua pior do que a carta cortada).
 
-**Primeiro passo da próxima sessão:** decidir com o Diogo (a) se o plano
-filtra a Fase A ou só pontua na Fase C, e (b) como corrigir ou substituir
-`edhrec_rank` como proxy de eficiência — só depois disto implementar a
-Fase C. Não avançar com a fórmula `w1..w3` tal como está escrita no §8
-sem resolver as duas primeiro.
+**Achado a resolver antes de fechar a Fase 4 (registado no §8/§12):** 72%
+do deck (67 de 93 cartas) empata em score 0, incluindo `Arcane Signet`
+(um dos melhores mana rocks do jogo, sem tag do plano do Cloud) — a
+ordem entre empatadas é hoje a ordem de inserção, não um critério. O
+score de mérito face ao plano não protege hoje uma carta boa
+independentemente do tema.
+
+**Primeiro passo da próxima sessão:** decidir com o Diogo como desempatar
+os 72% em score 0 antes de gerar recomendações "a sério" — ideias já
+registadas no §12 (desempate por `edhrec_rank` só na exibição, proteger a
+única carta de um papel do §7.1 dentro do empate). Depois disto: Fase D
+(LLM) e a simulação de checklist de bracket.
 
 **Decidido mas ainda por implementar** (documentado em §8/§6.4 da
 especificação, para retomar em código sem re-discutir):
-- O §8 Fase C passa a pontuar cada carta do deck e cada candidata pelo
-  mesmo score de mérito face ao plano do §7.2, nunca por preenchimento de
-  papel em falta; posse e preço ficam como classificação ao lado, fora do
-  score; os pesos do score são sliders na UI, não constantes no código.
 - Cortes por excesso de Game Changers do bracket exigem par de substituição
   (§8); regras próprias do grupo de torneio (turno esperado, combo com o
   commander, limiar de mana de combo precoce) ficam em
