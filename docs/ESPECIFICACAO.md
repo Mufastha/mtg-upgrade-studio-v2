@@ -925,7 +925,8 @@ que o eixo, para não afogar o tema em categorias genéricas.
 serve**: é popularidade em todos os decks, sem variante por identidade de cor
 nem por commander (documentação da Scryfall) — Polluted Delta aparecia num
 pool Naya por ser popular em decks azuis e pretos. Fonte candidata: dados por
-commander do EDHREC (8.1), por investigar. Até haver fonte, o motor **não tem
+commander do EDHREC (8.1) — investigados a 30 out, os termos de uso
+proíbem pedidos automatizados e redistribuição (§12, ponto 4). Até haver fonte, o motor **não tem
 sinal de força** e as recomendações têm de o dizer.
 
 **Posse e preço** (Tenho/Comprar/Proxy, §9) ficam ao lado de cada carta,
@@ -1277,9 +1278,37 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
    `tools/validation/limit-break.json`).
 4. **Sinal de força** (§8.3). O motor não tem nenhum desde que
    `edhrec_rank` saiu do score — e a medição com eixos curados mostrou que é
-   o que falta: dentro do eixo, centenas de candidatas empatam. Investigar os dados por commander do EDHREC:
-   o que existe, condições de uso, e como guardar em cache sem quebrar a
-   invariante 10 — mostrar ao Diogo antes de implementar.
+   o que falta: dentro do eixo, centenas de candidatas empatam.
+
+   **Investigação dos dados por commander do EDHREC (30 out 2026) — nada
+   implementado, à espera de decisão do Diogo:**
+   - *O que existe:* `json.edhrec.com/pages/commanders/<slug>.json`, ficheiro
+     estático em S3, atualizado diariamente, com `Access-Control-Allow-Origin:
+     *`. Para o Cloud: 33 404 decks, ~250 cartas com `num_decks`,
+     `potential_decks` (decks da mesma identidade de cor), `synergy`
+     (inclusão neste commander menos a da identidade de cor — corrige o viés
+     da Polluted Delta) e `lift`. Sem documentação nem API oficial.
+   - *Contra o conjunto de validação:* nos cortes concorda bastante (as que o
+     Diogo mantém têm 54% de inclusão média — Arcane Signet 92%, Red XIII
+     83%; as que corta, 19%), com exceções (Aerith 33% acima de Elena 26%).
+     Nas adições quase não há dados: das 4 escolhas só a Raubahn está na
+     página; Dáin, Jor Kadeen e Diamond Pick-Axe não — a página só traz as
+     cartas mais jogadas. Ausência não é fraqueza.
+   - *Viés:* boa parte dos decks do Cloud é o precon pouco alterado, o que
+     infla a inclusão das cartas do precon face às candidatas.
+   - *Condições de uso* (Terms of Service de 6 ago 2024): licença "solely
+     for your own personal, noncommercial use" (a app cumpre); **proíbe**
+     "software or automated agents or scripts to … generate automated
+     searches, requests, or queries to the Site" e copiar, reproduzir,
+     distribuir ou republicar qualquer parte do site. O `robots.txt` não
+     bloqueia as páginas de commanders, mas os termos são mais restritivos.
+     Ler o JSON a partir da app é um pedido automatizado; publicá-lo no
+     GitHub Pages seria redistribuição.
+   - *Se houver autorização do EDHREC:* pedido feito pelo browser do Diogo,
+     um por commander e no máximo uma vez por semana, guardado só no
+     IndexedDB dele com a data — nunca no Pages nem no git (exceção ao P2:
+     dado de referência que não pode ser redistribuído). O motor usaria a
+     cópia guardada, offline; sem cópia, força desconhecida, nunca zero.
 
 **Aberto, sem ordem:**
 
