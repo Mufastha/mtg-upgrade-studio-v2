@@ -343,12 +343,28 @@ deck_config {
 
 As recomendações pertencem ao par *(deck, config)*, nunca ao deck.
 
+**Implementado em versão mínima** (`src/rules/deck-config.js`,
+`src/data/deck-configs.js`, store `deck_configs`): criação com validação
+(`target_bracket` obrigatório, nunca assumido), armazenamento, inclusão no
+export/import de dados pessoais, e apagar um deck leva as configurações dele.
+`generateCandidates` exige uma configuração. `max_tutors` e
+`edhpowerlevel_result` ainda não existem no registo; não há UI para criar
+configurações.
+
 ---
 
 ## 6. Regras de bracket
 
-Ficheiro `bracket-rules.json`, versionado, com a data da atualização da WotC a
-que corresponde. **Estado atual: atualização de 9 de fevereiro de 2026.**
+Ficheiro `data/bracket-rules.json`, versionado, com a data da atualização da
+WotC a que corresponde. **Estado atual: atualização de 9 de fevereiro de 2026,
+confirmada a 30 de outubro de 2026** — os anúncios de março e maio e o B&R de
+12 de outubro não alteraram brackets nem Game Changers; a tabela abaixo bate
+com o anúncio de 21 de outubro de 2025 (B3: até três Game Changers, sem mass
+land denial, turnos extra em pouca quantidade e sem encadear, sem combos
+infinitos de duas cartas cedo). Deteção: tag `mass-land-denial` (conservadora
+— apanha também casos limite como Liliana of the Veil, o lado seguro para
+excluir de recomendações) e tag `extra-turn` (cobre as 51 cartas com "extra
+turn" no texto; `prevent-extra-turns` não conta).
 
 | Critério | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|
@@ -876,11 +892,22 @@ Legalidade, identidade de cor, **barreiras do bracket alvo** (§6, a partir de
 `exclude_tags`, `max_cmc`, Reserved List se excluída. Uma carta que falhe
 qualquer filtro não continua.
 
-Implementado: identidade de cor, `exclude_tags`, `max_cmc`. **Por
-implementar, primeiro na ordem de trabalho:** barreiras de bracket — hoje a
-Fase B corre sem `bracket-rules.json` nem `deck_config`, e pode recomendar
-Game Changers a um deck para um torneio de B3. Reserved List: o campo
-`reserved` entra no catálogo no build seguinte a 27 set 2026 (§3.1).
+**Implementado** (30 out 2026, `src/rules/bracket.js` +
+`generateCandidates`): todos os filtros acima, lidos da configuração (§5) e de
+`data/bracket-rules.json` (§6). Por carta: mass land denial e turnos extra
+excluídos onde o bracket os proíbe; turnos extra onde só não podem encadear
+continuam, anotados para verificação à mão; Game Changers excluídos se o deck
+já está no limite. O limite de Game Changers **ao longo de um lote** de várias
+trocas é verificado na avaliação do lote (§8.4). Reserved List: o catálogo tem
+o campo `reserved` nos builds posteriores a 27 set 2026 (544 cartas no de 26
+out); se faltar, o passo diz que não foi aplicado.
+
+Limit Break, bracket 3 (catálogo de 26 out 2026): 32 116 → 18 537 (Naya) →
+18 536 → 18 443 → 18 371 (72 cartas de mass land denial excluídas). Checklist
+do deck atual: Game Changers 0/3 pass, mass land denial pass, turnos extra
+pass, combos de 2 cartas e turno de fim em review. O conjunto de validação
+não mexe (nenhuma das 20 cartas toca numa barreira) — as barreiras protegem
+contra recomendações ilegais para o torneio, não melhoram a escolha.
 
 ### 8.3 Fase C — Relevância e força, em separado
 
@@ -1196,10 +1223,8 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 
 **Aberto, por ordem de trabalho (decidida a 30 de outubro de 2026):**
 
-1. **Barreiras de bracket na Fase B** (§8.2). Não existe `bracket-rules.json`
-   nem `deck_config`; o motor pode recomendar Game Changers a um deck de B3. A
-   tabela do §6 diz "atualização de 9 de fevereiro de 2026" — confirmar se a
-   WotC publicou atualização posterior antes de a codificar.
+1. ~~**Barreiras de bracket na Fase B**~~ — feito a 30 out 2026 (§8.2),
+   com o limite de Game Changers ao longo de um lote a cargo do ponto 2.
 2. **Emparelhamento por papel e lote avaliado como deck** (§8.4). Hoje os pares
    são por índice e cada corte é avaliado sem saber dos outros do mesmo lote.
 3. **Eixos curados e sugestão a partir das 99** (§7.2, §8.3). Hoje o score

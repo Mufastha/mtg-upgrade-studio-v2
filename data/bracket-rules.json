@@ -1,0 +1,66 @@
+{
+  "wotc_update": "2026-02-09",
+  "verified_at": "2026-10-30",
+  "sources": [
+    "https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025",
+    "https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-february-9-2026"
+  ],
+  "notes": [
+    "Sem mudanças estruturais desde 21 out 2025; a atualização de 9 fev 2026 só mexeu na lista de Game Changers (53 cartas). Anúncios de março, maio e o B&R de 12 out 2026 não alteraram brackets nem Game Changers.",
+    "As restrições a tutores foram removidas dos brackets 1-3 em outubro de 2025.",
+    "O Bracket 1 admite Game Changers em casos temáticos combinados antes do jogo - exceção social, a app não a avalia.",
+    "A lista de Game Changers vem sempre de is:gamechanger (campo is_gamechanger do catálogo), nunca deste ficheiro."
+  ],
+  "detection": {
+    "mass_land_denial_tag": "mass-land-denial",
+    "extra_turn_tag": "extra-turn"
+  },
+  "brackets": {
+    "1": {
+      "name": "Exhibition",
+      "game_changers_max": 0,
+      "mass_land_denial": "forbidden",
+      "extra_turns": "forbidden",
+      "two_card_combos": "forbidden",
+      "expected_turns_min": 9
+    },
+    "2": {
+      "name": "Core",
+      "game_changers_max": 0,
+      "mass_land_denial": "forbidden",
+      "extra_turns": "no_chaining",
+      "two_card_combos": "forbidden",
+      "expected_turns_min": 8
+    },
+    "3": {
+      "name": "Upgraded",
+      "game_changers_max": 3,
+      "mass_land_denial": "forbidden",
+      "extra_turns": "no_chaining",
+      "two_card_combos": "late_game_only",
+      "expected_turns_min": 6
+    },
+    "4": {
+      "name": "Optimized",
+      "game_changers_max": null,
+      "mass_land_denial": "allowed",
+      "extra_turns": "allowed",
+      "two_card_combos": "allowed",
+      "expected_turns_min": 4
+    },
+    "5": {
+      "name": "cEDH",
+      "game_changers_max": null,
+      "mass_land_denial": "allowed",
+      "extra_turns": "allowed",
+      "two_card_combos": "allowed",
+      "expected_turns_min": null
+    }
+  },
+  "group_interpretation": {
+    "source": "grupo de torneio B3 do Diogo - leitura do grupo, não regra oficial (§6.4)",
+    "expected_turn_count": { "min": 6, "max": 7 },
+    "no_combo_with_commander": true,
+    "early_combo_threshold_mana": 8
+  }
+}

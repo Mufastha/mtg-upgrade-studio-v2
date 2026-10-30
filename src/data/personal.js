@@ -3,9 +3,8 @@ import { getAll, clearStore, putAll } from '../db/idb.js';
 export const FORMAT = 'mtg-upgrade-studio-export';
 
 // P2: dados pessoais são coleção, decks e configurações - nunca o catálogo
-// (referência, re-descarregável). deck_configs entra aqui quando existir
-// (§5); por agora só há collection/decks/deck_cards.
-const PERSONAL_STORES = ['collection', 'decks', 'deck_cards'];
+// (referência, re-descarregável).
+const PERSONAL_STORES = ['collection', 'decks', 'deck_cards', 'deck_configs'];
 
 export async function exportPersonalData() {
   const stores = {};
@@ -24,10 +23,11 @@ export async function importPersonalData(bundle) {
   if (bundle?.format !== FORMAT) {
     throw new Error('Ficheiro não reconhecido: não é um export do MTG Upgrade Studio.');
   }
+  // Importar substitui tudo: uma store ausente no ficheiro (export anterior
+  // a deck_configs existir) fica vazia, em vez de manter configurações de
+  // decks que já não existem.
   for (const name of PERSONAL_STORES) {
-    const records = bundle.stores?.[name];
-    if (!records) continue;
     await clearStore(name);
-    await putAll(name, records);
+    await putAll(name, bundle.stores?.[name] ?? []);
   }
 }

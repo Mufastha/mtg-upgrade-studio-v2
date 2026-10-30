@@ -117,6 +117,7 @@ export async function renameDeck(deckId, name) {
 export async function deleteDeck(deckId) {
   await deleteRecord('decks', deckId);
   await deleteWhere('deck_cards', (dc) => dc.deck_id === deckId);
+  await deleteWhere('deck_configs', (c) => c.deck_id === deckId);
 }
 
 // Anulação por deck da classificação por papel (§7.1) - quando a regra
