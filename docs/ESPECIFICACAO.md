@@ -808,211 +808,214 @@ ser guardado.** Nunca aceite automático. Guardado com versão.
 
 ## 8. Motor de recomendação
 
-Quatro fases, nesta ordem. A ordem é o desenho, não uma sugestão.
+Quatro fases, nesta ordem. A ordem é o desenho, não uma sugestão. O histórico
+das versões anteriores deste capítulo está no git; aqui fica o desenho em
+vigor.
 
-**Fase A — Geração de candidatos.** Pool inicial: catálogo ∩ identidade de cor do
-commander. Enriquecido por sobreposição de oracle tags com o perfil do deck e
-por dados de commander (EDHREC).
+### 8.0 Diagnóstico de 30 de outubro de 2026
 
-**Fase B — Filtros duros.** Legalidade, identidade de cor, barreiras do bracket
-alvo, `exclude_tags`, `max_cmc`, Reserved List se excluída, cartas já no deck,
-cartas em `source_precon.base_cards` (§4.3) quando o deck tiver precon de
-origem declarado. Uma carta que falhe qualquer filtro não continua.
+A primeira versão completa (Fases A–C e a parte determinística da D, 27 de
+setembro) produziu para o Limit Break recomendações que o Diogo rejeitou na
+maioria (ver 8.6). Uma leitura crítica do código, confirmada por uma revisão
+independente do Diogo, encontrou a causa no modelo, não num caso isolado:
 
-**Fases A/B implementadas em 27 de setembro de 2026**
-(`src/rules/candidate-generation.js`, `generateCandidates`). Cada filtro é
-aplicado em sequência e devolvido como um passo com a contagem sobrante —
-"quantos candidatos ficam depois de cada filtro" é o próprio contrato da
-função. Testado contra o Limit Break real (catálogo de 21 de setembro de
-2026): 31 830 → 18 382 (identidade de cor Naya) → 18 381 (exclui o
-commander) → 18 288 (exclui as 100 cartas já no deck). Barreiras do
-bracket alvo e enriquecimento por EDHREC (Fase A) ainda não aplicados —
-dependem de `deck_config` (§5), sem UI nem armazenamento ainda.
+1. **O score media semelhança com o commander, não sinergia nem força.** O
+   plano era semeado das tags *do próprio Cloud* — o que ele **é**, não o que
+   ele **quer**. `attacking-matters-self` no Cloud quer dizer "o Cloud tem um
+   gatilho de ataque"; numa candidata quer dizer "esta carta tem o seu próprio
+   gatilho de ataque". Premiar isso é premiar parecença.
+2. **"Não é papel do §7.1 ⇒ eixo genuíno, peso máximo" era classificação por
+   ausência.** Das 8 tags que o plano semeado tratava como eixo, só 2 eram de
+   equipment; `firebend-like`, `refund`, `repeatable-treasures`,
+   `attacking-matters` pesavam o triplo sem ninguém as ter escolhido. É o erro
+   que o §7.1 já corrigira ("tag fora da tabela não é tag fiável"), repetido
+   ao contrário.
+3. **Não havia sinal de força.** Tirar `edhrec_rank` estava certo
+   (popularidade global, §8.3); assumir que "mérito face ao plano" bastava
+   estava errado. O plano mede **relevância**, nunca **qualidade**.
 
-**Reserved List — gap fechado no mesmo dia em que foi descoberto (§12).**
-O catálogo não guardava o campo `reserved` da Scryfall; acrescentado ao
-catalog-builder (§3.1), efetivo no próximo build. O filtro
-`exclude_reserved_list` em si continua por implementar, junto com o resto
-do que depende de `deck_config` (§5).
+Prova, com dados reais: Goldspan Dragon pontuava 12 (`attacking-matters-self`,
+`firebend-like`, `refund`, `repeatable-treasures` — zero equipment) e
+Stoneforge Mystic pontuava 3 (`synergy-equipment`). Num deck de equipment.
 
-**Duas descobertas de 27 de setembro de 2026, decididas no mesmo dia —
-ver justificação e dados na versão anterior deste documento (git log).**
+4. **Os pares corte/adição eram fictícios.** Duas listas ordenadas em separado
+   e juntas por índice — Aerith ↔ Tanuki Transplanter só por serem ambas "#1".
+   Nenhuma consciência de papel nas adições, o lote nunca avaliado como deck,
+   e as adições empatadas ordenadas pela posição no catálogo.
+5. **"Primeira-a-sair, confiança alta" afirmava uma coisa sobre a carta
+   quando só sabia uma coisa sobre a tabela.** As cartas cortadas tinham 6–9
+   tags cada (média do catálogo: 6,6) — não estavam sub-etiquetadas, estavam
+   fora do vocabulário do plano e do §7.1. Red XIII, Proud Warrior
+   (`synergy-modified`, `regrowth-equipment` — payoff de equipment) foi
+   cortado assim.
 
-1. Sobreposição de tags "qualquer uma" dilui-se em papéis genéricos do
-   §7.1, não no eixo do plano — testado sobre o pool do Cloud (18 288
-   candidatas): filtrado ao eixo específico (`synergy-equipment`/
-   `quick-equip`), o pool cai de 2 456 para 165 e passa a parecer mesmo um
-   deck de equipamento. **Decisão: o plano pontua, nunca filtra a Fase A**
-   (filtrar excluiria remoção/proteção/terrenos de que o deck precisa sem
-   ligação ao tema) — mas as `synergy_tags` do plano dividem-se em duas
-   contagens pesadas separadamente, nunca somadas ao mesmo peso: **eixo
-   genuíno** (tags que não são papel do §7.1) e **papel já coberto**
-   (tags que já são papel, via `getEstablishedRoleForTag`, §7.2).
-2. `edhrec_rank` é popularidade global, sem variante por identidade de
-   cor nem por commander (confirmado na documentação da própria
-   Scryfall). **Decisão: sai do score.** A ordenação por mérito face ao
-   plano já é critério suficiente; `edhrec_rank` fica visível ao lado de
-   cada carta, só como informação.
+Um dos exemplos da leitura crítica estava errado: `typal-soldier` (Heidegger,
+SOLDIER Military Program) parecia um sub-tema do deck que o plano não via. O
+Diogo corta as duas — é o tema de tokens do precon, não o plano do Cloud. É a
+razão pela qual as sugestões tiradas das 99 (§7.2) são sempre propostas a
+confirmar, nunca eixo automático: as 99 de um precon trazem temas que o dono
+do deck não quer.
 
-**Fase C — Scoring, implementada em 27 de setembro de 2026**
-(`src/rules/recommendation-score.js`, `scoreCard` + `generateRecommendations`).
-Compara cartas do deck com candidatas filtradas pela mesma fórmula — não
-gera candidatas para preencher papéis em falta, mede mérito face ao
-**plano de jogo** do commander (§7.2):
+### 8.1 Fase A — Geração de candidatos
 
-```
-score(carta, plano) = w_eixo * sobreposição_com_tags_de_eixo_genuíno
-                     + w_papel * sobreposição_com_tags_já_papel_do_§7.1
-                     - w_evitar * sobreposição_com_plano.avoid_tags
-```
+Pool inicial: catálogo ∩ identidade de cor do commander, menos o próprio
+commander, as cartas já no deck e `source_precon.base_cards` (§4.3).
+**Implementado** (`src/rules/candidate-generation.js`, `generateCandidates`),
+devolvendo a contagem sobrante a cada passo — "quantos ficam depois de cada
+filtro" é o contrato da função. Limit Break (catálogo de 21 set 2026):
+31 830 → 18 382 (Naya) → 18 381 → 18 288.
 
-`w_eixo`, `w_papel` e `w_evitar` são **três sliders separados e visíveis
-na interface**, nunca constantes fixas. Valores por omissão (tentativos,
-a calibrar com o julgamento do Diogo): `w_eixo=3`, `w_papel=1`,
-`w_evitar=2` — `w_eixo` pesa mais do que `w_papel` por omissão porque é o
-tema real do plano; a relação entre os dois é precisamente o que se
-afina. **`edhrec_rank` não entra na fórmula** — mostrado ao lado de cada
-carta, nunca como fator do score.
+Enriquecimento por dados de commander do EDHREC: **por investigar** (o que
+existe, condições de uso, como guardar em cache sem quebrar a invariante 10)
+— é a fonte candidata para o sinal de força (8.3).
 
-Posse (`Tenho`/`Comprar`/`Proxy`, §9) e preço são **classificação ao lado de
-cada carta, nunca fator do score.** Já ter a carta é custo, não mérito;
-misturá-los empurraria para baixo uma carta claramente melhor só por não
-estar na coleção. Quem quiser ver só o que já tem liga um filtro — a
-ordenação não muda com isso.
+### 8.2 Fase B — Filtros duros
 
-As cartas do deck (exceto commander e `untouchable`, §5) e as candidatas
-filtradas na Fase B são pontuadas pela mesma fórmula. Ordena-se o deck a
-subir (pior primeiro) e as candidatas a descer (melhor primeiro); empareha-se
-pior com melhor. `missingRoles` do §7.1 fica como aviso estrutural ao lado da
-lista ("30 terrenos é pouco"), nunca como termo do score — um deck já
-equilibrado não pode deixar o motor mudo.
+Legalidade, identidade de cor, **barreiras do bracket alvo** (§6, a partir de
+`bracket-rules.json` e do `target_bracket` da configuração, §5),
+`exclude_tags`, `max_cmc`, Reserved List se excluída. Uma carta que falhe
+qualquer filtro não continua.
 
-**Critério de paragem: `max_changes` (§5, ainda sem UI — 10 por omissão
-na implementação atual), não um score alvo.** O Diogo decide quantas
-trocas quer ver; a engine não para porque uma carta "já passou" um
-limiar.
+Implementado: identidade de cor, `exclude_tags`, `max_cmc`. **Por
+implementar, primeiro na ordem de trabalho:** barreiras de bracket — hoje a
+Fase B corre sem `bracket-rules.json` nem `deck_config`, e pode recomendar
+Game Changers a um deck para um torneio de B3. Reserved List: o campo
+`reserved` entra no catálogo no build seguinte a 27 set 2026 (§3.1).
 
-**Achado ao testar contra o Limit Break real: 72% do deck empatava em
-score 0** — nenhuma tag do plano, incluindo `Arcane Signet`. A ordem
-entre empatados era a ordem de inserção (sort estável) — na prática,
-alfabética: `Aerith, Arcane Signet, Ash Barrens, Austere Command,
-Avalanche...`, a engine a propor cortar ramp e um sweeper por acaso do
-alfabeto. **Corrigido no mesmo dia com elegibilidade de corte a partir
-do §7.1** (`computeCutTiers` em `recommendation-score.js`) — desempata
-por critério de jogo, nunca por posição nem por `edhrec_rank`:
+### 8.3 Fase C — Relevância e força, em separado
 
-- **Protegida** — é a única carta do deck a preencher um papel com alvo
-  (ou o único terreno, tratado como o mesmo mecanismo com `LAND_TARGET`)
-  — nunca é candidata a corte, excluída por completo, como `untouchable`
-  (§5). Confirmado: `Hellkite Tyrant` (único fecho de jogo) e `Tifa,
-  Martial Artist` (única em amplificadores) protegidas no Limit Break.
-- **Primeira-a-sair** — não ocupa papel nenhum (nem terrenos) e tem score
-  de plano 0 — topo da fila de corte.
-- **Legítima** — ocupa papel(is) com folga (contagem do deck acima do
-  alvo) — corte razoável, o papel continua servido. `Arcane Signet`
-  cai aqui (Ramp tem folga de 3): deixa de ser candidata a corte
-  enquanto houver "primeira-a-sair" por cortar, mas nunca fica excluída
-  como as protegidas.
-- **Sem folga** — ocupa papel(is) sem folga e não é a única — nem
-  protegida nem prioritária, fica por último entre as não-protegidas.
+Uma carta boa para o deck tem de ser **relevante para o plano** e **forte**.
+São duas medidas distintas e nunca se derivam uma da outra.
 
-Dentro do mesmo grau (empatadas em tier e em score de plano), o
-desempate final é por nome — determinístico e documentado como último
-recurso (reprodutibilidade, P7), nunca o critério principal.
+**Relevância** — só a partir de eixos **curados** pelo Diogo (§7.2). Uma tag
+não confirmada como eixo pesa zero. A semente do commander e as sugestões
+tiradas das 99 propõem eixos; nunca pesam sozinhas. Cartas do tipo X contam
+para um eixo `synergy-X` (Equipment para `synergy-equipment`) — `synergy-X`
+marca quem gosta de X, nunca X em si; só cobre X que seja tipo/subtipo literal
+do `type_line` (§12). Tags que já são papel do §7.1 contam com peso menor do
+que o eixo, para não afogar o tema em categorias genéricas.
 
-**Gap encontrado a testar isto:** terrenos vivem fora de `roleCards`
-(têm o próprio alvo, `LAND_TARGET`, §7.1) — sem tratamento especial,
-todo terreno sem outro papel caía em "primeira-a-sair" só por essa
-métrica viver noutro sítio, e a primeira versão do corte ficou cheia de
-terrenos (`Battlefield Forge`, `Brushland`, `Canopy Vista`...). Corrigido
-tratando terrenos como mais um "papel" sintético no mesmo mecanismo,
-antes de mostrar o resultado ao Diogo.
+**Força** — sinal contextual, por commander. `edhrec_rank` global **não
+serve**: é popularidade em todos os decks, sem variante por identidade de cor
+nem por commander (documentação da Scryfall) — Polluted Delta aparecia num
+pool Naya por ser popular em decks azuis e pretos. Fonte candidata: dados por
+commander do EDHREC (8.1), por investigar. Até haver fonte, o motor **não tem
+sinal de força** e as recomendações têm de o dizer.
 
-**Limite conhecido, não resolvido:** a elegibilidade é calculada sobre o
-estado *atual* do deck, carta a carta — não simula o efeito de aplicar
-várias trocas do mesmo lote em conjunto. Se o lote cortasse vários
-terrenos ao mesmo tempo (não aconteceu no Limit Break, só havia 1 de
-folga), cada um seria avaliado como "legítimo" isoladamente sem saber que
-os outros já gastaram a folga. Aberto no §12.
+**Posse e preço** (Tenho/Comprar/Proxy, §9) ficam ao lado de cada carta,
+nunca no score — já ter uma carta é custo, não mérito.
 
-**Segundo achado, corrigido no mesmo dia: `synergy-X` marca quem gosta de
-X, não X em si — o eixo cortava o próprio arquétipo.** Colossus Hammer,
-Hero's Heirloom e Conqueror's Flail (todos `Artifact — Equipment`) foram
-propostos para corte por "sem sinergia" num deck cujo eixo é
-`synergy-equipment`/`quick-equip` — as três cartas centrais do
-arquétipo. Causa: `synergy-equipment` está em Sram/Sigarda's Aid/Brass
-Squire (cartas que **se dão bem** com equipment), nunca no próprio
-Equipment. **Corrigido** (`countTypeAxisOverlap`,
-`recommendation-score.js`): para cada `synergy-X` do eixo genuíno,
-extrai-se a palavra depois de "synergy-" e procura-se como palavra
-inteira no `type_line` da carta — sem lista de tipos escrita à mão. Isto
-só acerta quando a palavra é mesmo um tipo/subtipo real (`equipment`,
-`artifact`, `vehicle`, `aura`, `instant`, `sorcery`...); `synergy-graveyard`,
-`synergy-red`, `synergy-historic` nunca batem por esta via, porque essas
-palavras nunca aparecem literalmente num `type_line` — ficam **sem
-cobertura**, não como falso positivo. Registado como limite conhecido no
-§12: o pedido do Diogo era generalizar para "cartas com mecânicas de X"
-(ex. cemitério), que este mecanismo não cobre — só cobre tipo/subtipo
-literal.
+Pesos (`w_eixo`, `w_papel`, `w_evitar`, e o de força quando existir): sliders
+visíveis, nunca constantes no código. Os valores por omissão só se fixam
+medindo contra o conjunto de validação (8.6).
 
-`Conqueror's Flail` acumula os dois achados: além de ganhar eixo por
-tipo (Equipment), é a única fonte de disrupção do deck (`silence`, acima)
-— fica **protegida**, nunca candidata a corte, por duas razões
-independentes que já eram cada uma suficiente sozinha.
+**Estado do código** (`src/rules/recommendation-score.js`, `scoreCard`): ainda
+o modelo de 27 de setembro — trata toda a tag do plano que não seja papel como
+eixo, e não tem sinal de força. Por rever quando os eixos curados (§7.2) e
+a fonte de força existirem.
 
-**Fase D — Reordenação e justificação (LLM).** Apenas sobre o top ~40. Devolve
-ordenação, justificação por carta e pares adição/corte propostos. Todo o output
-é validado contra o catálogo (P5).
+### 8.4 Cortes, emparelhamento e avaliação do lote
 
-**Parte determinística implementada em 27 de setembro de 2026**
-(`src/rules/recommendation-justification.js`, `justifyPair`/
-`justifyRecommendations`) — antes de qualquer LLM (invariante 4:
-"determinístico antes do LLM"), porque a justificação tem de vir de
-factos computados, nunca inventados. Por par:
+**Elegibilidade de corte** a partir do §7.1 (`computeCutTiers`) — mantém-se:
 
-- **Confiança do corte** (`CONFIDENCE_BY_TIER`, `recommendation-score.js`):
-  `alta` quando o tier é "primeira-a-sair" (sem papel, sem sinergia, sem
-  depender de nenhum alvo); `média` quando depende de folga sobre um alvo
-  do §7.1 (ainda por calibrar, §12) — pedido do Diogo para poder tratar
-  as duas de forma diferente, a decisão de trocar ramp/remoção por uma
-  carta nova é mais arriscada do que cortar uma carta sem papel nem
-  sinergia nenhuma.
-- **Que papel sai:** para "primeira-a-sair", "sem papel do §7.1 e sem
-  nenhuma tag do plano"; para as outras, o(s) papel(is) ocupados e a
-  folga sobre o alvo.
-- **Que papel/eixo entra:** as tags de eixo genuíno, as palavras de tipo
-  batidas (equipment, artifact...) e as tags de papel do §7.1 já
-  cobertas que a candidata traz — `scoreCard` (Fase C) passou a devolver
-  as tags/palavras que bateram, não só a contagem, precisamente para
-  isto.
+- **Protegida** — única carta do deck a preencher um papel com alvo, ou o
+  único terreno: nunca candidata. Hellkite Tyrant, Tifa e Conqueror's Flail no
+  Limit Break.
+- **Sem papel reconhecido** (antes "primeira-a-sair") — nenhum papel do §7.1
+  e nenhuma tag dos eixos curados. **Não é confiança alta:** quer dizer que a
+  carta está fora do nosso vocabulário, não que é fraca (Red XIII).
+- **Por folga** — ocupa papel(is) com folga sobre o alvo do §7.1. Depende de
+  alvos escritos à mão e ainda não validados — a decisão mais arriscada da
+  lista (cortar ramp ou remoção), e marcada como tal.
+- **Sem folga** — ocupa papel no alvo ou abaixo, não é a única: por último.
 
-Testado contra o Limit Break real: as primeiras 6 recomendações (sem
-papel nem sinergia) saem com confiança alta; as últimas 4 (folga em
-Ramp/Terrenos/Remoção/Proteção) saem com confiança média, marcadas como
-tal. Um resumo típico: *"Sai Austere Command (ocupa Remoção, folga de 1
-sobre o alvo) [...]. Entra Merry, Esquire of Rohan (ganha: eixo do plano
-attacking-matters/synergy-equipment; papel do §7.1 já coberto: Draw)"* —
-mostra que a troca não é remoção-por-remoção, é remoção-com-folga por
-eixo+draw, informação que o score sozinho (15 contra 0) não dava.
+`untouchable` (§5) nunca aparece como corte.
 
-**Por implementar, aberto:** a reordenação por LLM em si e a fase de
-"prosa" sobre estes factos — este projeto nunca chamou a Anthropic API
-até agora (`grep` ao repositório não encontra nenhuma integração). Falta
-decidir como a app autentica/chama a API (chave inserida pelo Diogo no
-browser? proxy?) antes de implementar essa parte; a parte determinística
-acima já cobre o "porquê" sem precisar de LLM nenhum.
+**Emparelhamento por papel, não por índice.** Cada adição é escolhida para o
+corte que substitui: um corte por folga é substituído por uma carta do mesmo
+papel ou o par diz explicitamente que o papel não é reposto e que o deck
+continua no alvo depois disso. Corte sem substituto é recomendação incompleta
+— nunca se mostra um corte sozinho.
 
-**Cortes.** Um deck de 100 cartas não aceita adições sem remoções. A engine
-propõe pares; o corte é sempre decisão do utilizador; cartas em `untouchable`
-nunca aparecem como corte.
+**O lote é avaliado como deck.** Antes de mostrar as trocas, o motor aplica-as
+em sequência ao deck e verifica o resultado: terrenos e papéis contra os alvos
+do §7.1 (a folga gasta por uma troca já não está disponível para a seguinte),
+Game Changers contra o limite do bracket (§6), e a curva antes/depois. Uma
+troca que quebre uma barreira ou ponha um papel abaixo do alvo não entra. A
+curva é reportada, não bloqueia — não há alvo de curva validado.
 
-Quando o corte é forçado por uma barreira do bracket alvo — por exemplo, o
-deck excede o limite de Game Changers do §6 — o critério de escolha é o
-mesmo score: corta-se primeiro o Game Changer pior pontuado face ao plano.
-Se esse Game Changer for a única carta do deck a preencher um papel do §7.1,
-o par de substituição é obrigatório, tirado da mesma Fase C e filtrado a
-preencher esse papel. **Corte sem substituto é recomendação incompleta** —
-nunca se mostra um corte sozinho.
+Quando o corte é forçado por uma barreira do bracket (o deck excede o limite
+de Game Changers), corta-se primeiro o Game Changer menos relevante para o
+plano; se for o único a preencher um papel, o substituto tem de o preencher.
+
+**Critério de paragem:** `max_changes` (§5), nunca um score alvo.
+
+**Estado do código:** a elegibilidade está implementada; o emparelhamento ainda
+é por índice e o lote ainda não é avaliado como deck — por implementar.
+
+### 8.5 Fase D — Reordenação e justificação (LLM)
+
+Apenas sobre o top ~40. Todo o nome de carta que o LLM produza é resolvido
+contra o catálogo (P5); se não resolver, é descartado.
+
+**Parte determinística implementada** (`src/rules/recommendation-justification.js`):
+por par, que papel sai, que eixo/papel entra (`scoreCard` devolve as tags e
+palavras de tipo que bateram), e o grau de confiança do corte. A justificação
+vem de factos computados, nunca do LLM. Os textos de confiança acompanham a
+revisão de 8.4 ("sem papel reconhecido" deixa de dizer "alta").
+
+**Por implementar:** a reordenação por LLM. O projeto nunca chamou a Anthropic
+API; falta decidir como a app autentica (chave do Diogo no browser? outro
+mecanismo?).
+
+### 8.6 Conjunto de validação — Limit Break
+
+Veredicto do Diogo (30 de outubro de 2026) sobre as 10 adições e os 10 cortes
+que o motor de 27 de setembro propôs. **Toda a alteração ao scoring ou ao
+emparelhamento é medida contra este conjunto e reportada como "X das tuas
+escolhas no top 10, Y das rejeitadas"**, separadamente para adições e cortes,
+com as cartas novas no top 10 marcadas "por julgar" (e julgadas pelo Diogo
+para o conjunto crescer). Máquina: `tools/validation/limit-break.json` +
+`node tools/validation/measure.mjs "<decklist>"` — o ficheiro é espelho desta
+tabela.
+
+Ordem decidida pelo Diogo: corrigir contra o Limit Break, depois confirmar no
+Shelob (§11) que as correções generalizam. O risco de sobreajuste a um único
+deck resolve-se nessa segunda passagem, não antes.
+
+**Adições**
+
+| Carta | Veredicto | Razão (do Diogo) |
+|---|---|---|
+| Raubahn, Bull of Ala Mhigo | escolha | — |
+| Diamond Pick-Axe | escolha | barata, equipa na curva, difícil de remover, pumpa e gera mana |
+| Dáin Ironfoot | escolha | põe um equipamento já equipado, facilmente finisher |
+| Jor Kadeen, First Goldwarden | escolha | — |
+| Tanuki Transplanter | rejeitada | rampa, mas há ramp verde melhor; cara a jogar e a re-equipar; o plano é várias criaturas equipadas e o Cloud a power 7 |
+| Goldspan Dragon | rejeitada | boa carta, não faz nada pelo plano |
+| Amy Rose | rejeitada | cara para o que faz, depende do que já está em campo |
+| Tributary Instructor | rejeitada | é para decks de contadores +1/+1 |
+| Paladin Elizabeth Taggerdy | rejeitada | go-wide / cheat de criaturas, não representa o Cloud |
+| Merry, Esquire of Rohan | rejeitada | é para decks de lendas |
+
+**Cortes**
+
+| Carta | Veredicto | Razão (do Diogo) |
+|---|---|---|
+| Aerith, Last Ancient | escolha | reanimar dá demasiado trabalho |
+| Avalanche of Sector 7 | escolha | não ajuda o tema |
+| Heidegger, Shinra Executive | escolha | para decks de tokens Soldier |
+| SOLDIER Military Program | escolha | idem |
+| Elena, Turk Recruit | rejeitada | recupera históricos — todos os equipamentos são artefactos; procuraria outra carta primeiro |
+| Red XIII, Proud Warrior | rejeitada | barata, dá keywords a criaturas modificadas (as equipadas são), e recupera equipamento |
+| Arcane Signet | rejeitada | staple, sobretudo em três cores — "nunca na vida" |
+| Ash Barrens | rejeitada | mana fixing; só sairia por outro terreno |
+| Austere Command | rejeitada | não corta board wipes sem manter um número saudável; talvez por um melhor |
+| Bastion Protector | rejeitada | proteção e pump do commander — essencial |
+
+**Linha de base** (motor de 27 set, catálogo de 21 set, plano = semente não
+curada): adições — 4 das 4 escolhas, 6 das 6 rejeitadas no top 10; cortes — 4
+das 4 escolhas, 6 das 6 rejeitadas.
 
 ---
 
@@ -1155,14 +1158,13 @@ para as barreiras verificáveis automaticamente.
 linhas rejeitadas.
 
 ### Fase 4 — Motor de recomendação
-- ~~Fases A/B (§8): geração de candidatos + filtros duros~~ — **já feito**,
-  27 de setembro de 2026. Ver nota em §8.
-- ~~Fase C (§8): scoring~~ — **já feito**, 27 de setembro de 2026. Ver
-  nota em §8. Testado contra o Limit Break real (10 pares corte/adição
-  gerados, sem terrenos nem ramp fundamental na lista de corte — elegibilidade
-  a partir do §7.1 resolveu o empate de 72% em score 0 no mesmo dia). Fases
-  A/B/C por si só não são a fase aceite (falta simulação de bracket e
-  Supabase) — marcadas para não se perder o progresso.
+- Fase A (§8.1) — implementada, sem enriquecimento por EDHREC
+- Fase B (§8.2) — implementada sem as barreiras de bracket (primeiro na ordem
+  de trabalho, §12)
+- Fase C (§8.3, §8.4) — implementada a 27 set 2026 e **em revisão** desde o
+  diagnóstico de 30 out (§8.0): eixos curados, sinal de força, emparelhamento
+  por papel, lote avaliado como deck. Medida contra o conjunto de validação
+  (§8.6).
 - Simulação de checklist projetada (§6.2)
 - Sincronização Supabase dos dados pessoais
 
@@ -1171,11 +1173,9 @@ nenhuma carta recomendada quebra uma barreira do bracket alvo, e as recomendaç�
 para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 
 ### Fase 5 — Reordenação e integrações
-- Fase D (§8): reordenação e justificações — ~~parte determinística
-  (justificação por papel/eixo, confiança do corte)~~ **já feita**, 27 de
-  setembro de 2026, ver nota em §8; reordenação por LLM em si por
-  implementar, depende de decidir como a app chama a Anthropic API
-- Pares adição/corte — já gerados desde a Fase C (§8)
+- Fase D (§8.5): justificação determinística implementada; reordenação por
+  LLM por implementar, depende de decidir como a app chama a Anthropic API
+- Pares adição/corte — gerados desde a Fase C, emparelhamento em revisão (§8.4)
 - Combos via Commander Spellbook
 - Link HXDEC para o EDHPowerLevel (a confirmar)
 
@@ -1192,40 +1192,38 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 | Preço estimado diverge do real | Enquadrado como estimativa em toda a UI (P4) |
 | LLM inventa cartas | Validação contra catálogo (P5) |
 | Biblioteca HXDEC não serve | Fallback: copiar e colar, como já é feito hoje |
-| ~~Catálogo não guardava `reserved` (Scryfall)~~ | **Fechado**, 27 de setembro de 2026 — campo acrescentado ao catalog-builder (§3.1), efetivo no próximo build (semanal ou manual). O filtro `exclude_reserved_list` em si continua por implementar, junto com `exclude_tags`/`max_cmc`/barreiras de bracket — todos dependem de `deck_config` (§5), sem UI nem armazenamento ainda |
+| Afinar o motor a um único deck | Conjunto de validação do Limit Break (§8.6), depois confirmação no Shelob |
 
-**Aberto:** valores iniciais dos pesos `w_eixo`/`w_papel`/`w_evitar` do
-score (§8 Fase C — já sliders na UI, não constantes no código) — a
-calibrar empiricamente comparando recomendações com o julgamento do
-Diogo, Fase 4 contra o Shelob, que ele já conhece a fundo.
+**Aberto, por ordem de trabalho (decidida a 30 de outubro de 2026):**
 
-~~**Aberto:** 72% do Limit Break empata em score 0 (§8)~~ — **Fechado**,
-27 de setembro de 2026, com elegibilidade de corte a partir do §7.1
-(protegida/primeira-a-sair/legítima/sem-folga — ver §8). `edhrec_rank`
-continua fora de qualquer critério de ordenação, mesmo como desempate —
-decisão do Diogo, popularidade fora da identidade de cor não informa
-nada mesmo só para desempatar.
+1. **Barreiras de bracket na Fase B** (§8.2). Não existe `bracket-rules.json`
+   nem `deck_config`; o motor pode recomendar Game Changers a um deck de B3. A
+   tabela do §6 diz "atualização de 9 de fevereiro de 2026" — confirmar se a
+   WotC publicou atualização posterior antes de a codificar.
+2. **Emparelhamento por papel e lote avaliado como deck** (§8.4). Hoje os pares
+   são por índice e cada corte é avaliado sem saber dos outros do mesmo lote.
+3. **Eixos curados e sugestão a partir das 99** (§7.2, §8.3). Hoje o score
+   trata como eixo, com o peso máximo, toda a tag do plano que não seja papel
+   do §7.1.
+4. **Sinal de força** (§8.3). O motor não tem nenhum desde que
+   `edhrec_rank` saiu do score. Investigar os dados por commander do EDHREC:
+   o que existe, condições de uso, e como guardar em cache sem quebrar a
+   invariante 10 — mostrar ao Diogo antes de implementar.
 
-**Aberto:** a elegibilidade de corte do §8 avalia cada carta isoladamente
-contra o estado *atual* do deck — não simula o efeito de cortar várias
-cartas do mesmo lote em conjunto. Um lote que proponha cortar vários
-terrenos (ou várias cartas do mesmo papel) ao mesmo tempo pode gastar
-toda a folga sem a engine dar por isso, porque cada corte é avaliado
-sem saber dos outros do mesmo lote. Não aconteceu no Limit Break (só
-havia 1 terreno de folga, nunca proposto mais que isso de uma vez), mas
-é uma lacuna real para decks com folgas maiores. Descoberto a testar a
-Fase C contra dados reais, 27 de setembro de 2026.
+**Aberto, sem ordem:**
 
-**Aberto:** o casamento `synergy-X` → `type_line` (§8) só cobre X que seja
-um tipo/subtipo literal (equipment, artifact, vehicle...) — não cobre
-"cartas com mecânica de X" quando X não é um tipo (`synergy-graveyard`,
-`synergy-historic`). Generalizar para mecânicas exigiria uma segunda
-correspondência por eixo (ex. `synergy-graveyard` → tags de recursão/mill
-já catalogadas nesta especificação), não um mecanismo genérico único —
-por decidir se compensa, ou se fica para o Diogo curar manualmente
-adicionando essas tags ao eixo do plano. Descoberto ao corrigir
-Colossus Hammer/Hero's Heirloom/Conqueror's Flail, 27 de setembro de
-2026.
+- **Alvos do §7.1 escritos à mão.** Os cortes "por folga" dependem deles e
+  nenhum foi validado contra decks reais — reserva do Diogo (30 out): trocar
+  ramp ou remoção por uma criatura é a decisão mais arriscada da lista. Estes
+  cortes vão marcados como tal até os alvos terem base.
+- **Pesos do score** (`w_eixo`, `w_papel`, `w_evitar`, força) — sliders na
+  UI; os valores por omissão só se fixam medindo contra o §8.6.
+- **`synergy-X` → `type_line`** só cobre X que seja tipo/subtipo literal
+  (equipment, artifact, vehicle…); `synergy-graveyard`, `synergy-historic`
+  ficam sem cobertura até o Diogo os curar à mão como eixo.
+- **Validação só no Limit Break** — confirmar no Shelob que as correções
+  generalizam, depois de ele ser importado.
+- **LLM da Fase D** — falta decidir como a app autentica a Anthropic API.
 
 **Trabalho futuro:** catálogo de precons no builder, a partir do
 `taw/magic-preconstructed-decks-data` ou do MTGJSON. Hoje o campo "É um deck

@@ -1,0 +1,37 @@
+{
+  "deck": "Limit Break (Cloud, Ex-SOLDIER)",
+  "judged_at": "2026-10-30",
+  "source": "Veredicto do Diogo sobre as 10 adições e os 10 cortes que o motor de 27 de setembro de 2026 propôs. Espelho do §8 da especificação (Conjunto de validação) - se um mudar, o outro muda.",
+  "adds": {
+    "accepted": [
+      "Raubahn, Bull of Ala Mhigo",
+      "Diamond Pick-Axe",
+      "Dáin Ironfoot",
+      "Jor Kadeen, First Goldwarden"
+    ],
+    "rejected": [
+      "Tanuki Transplanter",
+      "Goldspan Dragon",
+      "Amy Rose",
+      "Tributary Instructor",
+      "Paladin Elizabeth Taggerdy",
+      "Merry, Esquire of Rohan"
+    ]
+  },
+  "cuts": {
+    "accepted": [
+      "Aerith, Last Ancient",
+      "Avalanche of Sector 7",
+      "Heidegger, Shinra Executive",
+      "SOLDIER Military Program"
+    ],
+    "rejected": [
+      "Elena, Turk Recruit",
+      "Red XIII, Proud Warrior",
+      "Arcane Signet",
+      "Ash Barrens",
+      "Austere Command",
+      "Bastion Protector"
+    ]
+  }
+}
