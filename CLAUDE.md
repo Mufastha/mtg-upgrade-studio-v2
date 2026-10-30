@@ -78,10 +78,29 @@ O histórico está no git e na especificação; aqui só o ponto em que estamos.
 - **Motor (§8):** Fases A/B com barreiras de bracket (`data/bracket-rules.json`,
   `deck_config` mínimo), relevância só a partir de eixos curados, cortes
   emparelhados por papel e lote avaliado como deck, justificação
-  determinística. Conjunto de validação do Limit Break em
-  `tools/validation/limit-break.json`.
-- **Aberto, por ordem:** sinal de força (§12 ponto 4 — dados do EDHREC
-  investigados, termos de uso proíbem pedidos automatizados e
-  redistribuição, à espera de decisão do Diogo); validar no Shelob que as
-  correções generalizam; alvos do §7.1 e pesos do score sem base medida;
-  reordenação por LLM (falta decidir a autenticação da Anthropic API).
+  determinística. Ainda não aparece na UI — corre pelo
+  `tools/validation/measure.mjs`.
+
+## Próxima sessão — pendentes por ordem (detalhe no §12 da especificação)
+
+1. **O Diogo guarda o plano curado do Limit Break na app.** Depois:
+   acrescentá-lo ao `game_plan` de `tools/validation/limit-break.json`,
+   correr a medição e reportar "X das escolhas do Diogo no top 10, Y das
+   rejeitadas" (registar no §8.6). **Nada mais se afina antes deste número
+   existir.**
+2. **EDHREC: não se implementa nada.** Os termos de uso proíbem acesso
+   automatizado e redistribuição; o Diogo decide se pede autorização. Até
+   lá o motor não tem sinal de força e as recomendações têm de o dizer
+   (requisito ainda por cumprir: nem o `measure.mjs` nem a UI o dizem).
+3. **Depois do ponto 1:** substituir os alvos do §7.1 pelo template da
+   Command Zone (Rachel Weeks, fev. 2025: 38 terrenos, 10 ramp, 12 card
+   advantage, 12 targeted disruption, 6 mass disruption, 30 plan cards;
+   108 com sobreposição) num ficheiro de dados com fonte e data; dividir as
+   plan cards em recursos, motores e payoffs, classificados ao nível das
+   tags do plano, sem proporção alvo — só medida e mostrada. Decisões de
+   correspondência com os papéis em §12, ponto 6.
+4. **Depois:** importar o Shelob como segundo conjunto de validação, para
+   confirmar que as correções não estão sobreajustadas ao Limit Break.
+
+Em aberto sem ordem: pesos do score, `synergy-X` só por tipo literal,
+autenticação da Anthropic API para a Fase D.

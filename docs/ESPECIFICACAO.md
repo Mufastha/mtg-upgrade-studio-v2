@@ -726,7 +726,8 @@ abre uma edição dos papéis dessa carta, só para aquele deck.
 
 Pisos de senso comum de construção de Commander — **avisos estruturais**,
 não regra oficial nem motor de recomendação (isso é o §8, calibrado a partir
-do plano do commander, não de alvos fixos — ver §12). **Não ajustados para
+do plano do commander, não de alvos fixos — ver §12). **A substituir** pelo
+template da Command Zone num ficheiro de dados (§12, ponto 6). **Não ajustados para
 nenhum deck passar ou falhar:** se um deck bem construído cumpre um alvo,
 esse é o resultado correto, não motivo para subir o número.
 
@@ -926,7 +927,7 @@ serve**: é popularidade em todos os decks, sem variante por identidade de cor
 nem por commander (documentação da Scryfall) — Polluted Delta aparecia num
 pool Naya por ser popular em decks azuis e pretos. Fonte candidata: dados por
 commander do EDHREC (8.1) — investigados a 30 out, os termos de uso
-proíbem pedidos automatizados e redistribuição (§12, ponto 4). Até haver fonte, o motor **não tem
+proíbem pedidos automatizados e redistribuição (§12, ponto 5). Até haver fonte, o motor **não tem
 sinal de força** e as recomendações têm de o dizer.
 
 **Posse e preço** (Tenho/Comprar/Proxy, §9) ficam ao lado de cada carta,
@@ -954,7 +955,7 @@ a do nome (último recurso determinístico), e as 10 adições saem de A a B.
 **A relevância curada é necessária e não chega: sem sinal de força o motor
 não consegue ordenar dentro do eixo.** Nenhum desempate (custo de mana, por
 exemplo) é introduzido sem fonte e sem medição — fica para a decisão sobre
-os dados do EDHREC (§12).
+os dados do EDHREC (§12, ponto 5).
 
 ### 8.4 Cortes, emparelhamento e avaliação do lote
 
@@ -1230,8 +1231,7 @@ linhas rejeitadas.
 
 ### Fase 4 — Motor de recomendação
 - Fase A (§8.1) — implementada, sem enriquecimento por EDHREC
-- Fase B (§8.2) — implementada sem as barreiras de bracket (primeiro na ordem
-  de trabalho, §12)
+- Fase B (§8.2) — implementada, com as barreiras de bracket desde 30 out 2026
 - Fase C (§8.3, §8.4) — implementada a 27 set 2026 e **em revisão** desde o
   diagnóstico de 30 out (§8.0): eixos curados, sinal de força, emparelhamento
   por papel, lote avaliado como deck. Medida contra o conjunto de validação
@@ -1276,9 +1276,22 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
    (§7.2, §8.3). Falta o Diogo guardar o plano do Limit Break; o conjunto de
    validação passa a medir-se com esse plano (campo `game_plan` em
    `tools/validation/limit-break.json`).
-4. **Sinal de força** (§8.3). O motor não tem nenhum desde que
+4. **Medir com o plano curado do Limit Break.** O Diogo guarda o plano na
+   app; depois, acrescentá-lo ao campo `game_plan` de
+   `tools/validation/limit-break.json`, correr
+   `node tools/validation/measure.mjs "<decklist>"` e reportar "X das
+   escolhas do Diogo no top 10, Y das rejeitadas" (registar no §8.6).
+   **Nada mais se afina antes deste número existir** — é a linha de base
+   contra a qual os pontos seguintes se medem.
+5. **Sinal de força** (§8.3). O motor não tem nenhum desde que
    `edhrec_rank` saiu do score — e a medição com eixos curados mostrou que é
-   o que falta: dentro do eixo, centenas de candidatas empatam.
+   o que falta: dentro do eixo, centenas de candidatas empatam. **Bloqueado
+   numa decisão do Diogo** (pedir ou não autorização ao EDHREC); até lá não
+   se implementa nenhuma fonte, e qualquer saída do motor diz que não há
+   sinal de força e que, dentro do mesmo score, a ordem é a do nome. Hoje
+   o motor só corre pelo `measure.mjs` (a UI ainda não mostra
+   recomendações) e nenhum dos dois o diz ainda — fica como requisito de
+   quem mostrar recomendações primeiro.
 
    **Investigação dos dados por commander do EDHREC (30 out 2026) — nada
    implementado, à espera de decisão do Diogo:**
@@ -1310,19 +1323,61 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
      dado de referência que não pode ser redistribuído). O motor usaria a
      cópia guardada, offline; sem cópia, força desconhecida, nunca zero.
 
+6. **Alvos do §7.1 a partir do template da Command Zone.** Os alvos atuais
+   (`ROLE_TARGETS`/`LAND_TARGET` em `src/rules/deck-metrics.js`) foram
+   escritos à mão e nunca validados; os cortes "por folga" (§8.4) dependem
+   deles — reserva do Diogo (30 out): trocar ramp ou remoção por uma
+   criatura é a decisão mais arriscada da lista. Substituí-los pelo template
+   de construção da Command Zone (Rachel Weeks, fevereiro de 2025; fonte
+   indicada pelo Diogo — confirmar o episódio/URL ao criar o ficheiro):
+
+   | Categoria | Cartas |
+   |---|---|
+   | Terrenos | 38 |
+   | Ramp | 10 |
+   | Card advantage | 12 |
+   | Targeted disruption | 12 |
+   | Mass disruption | 6 |
+   | Plan cards | 30 |
+   | **Total** | **108** — soma acima de 99 porque uma carta pode contar em mais de uma categoria |
+
+   - **Ficheiro de dados, não código** (como o `bracket-rules.json`, P6):
+     p. ex. `data/deck-template.json`, com `source` (programa, autora, data,
+     URL), `verified_at` e as categorias com o número e o papel/papéis do
+     §7.1 a que cada uma corresponde. `deck-metrics.js` passa a ler os alvos
+     daí.
+   - **Correspondência com os papéis do §7.1, por decidir ao implementar:**
+     terrenos 36→38 e ramp 8→10 são diretos. Card advantage ↔ Draw — decidir
+     se Acesso Temporário conta (o template não separa; nós separámos a 5
+     set). Targeted vs mass disruption obriga a partir a Remoção atual, que
+     junta pontual e `sweeper`/`sweeper-one-sided`/`sweeper-graveyard`
+     (`multi-removal` por classificar); e decidir se Disrupção e
+     Interação/resposta (counterspells, bounce) entram em targeted
+     disruption. Proteção, Fecho de jogo e Amplificadores não têm categoria
+     no template — ficam medidos e mostrados sem alvo, como Acesso
+     Temporário, a não ser que haja outra fonte.
+   - **Plan cards (30) divididas em recursos, motores e payoffs**,
+     classificadas **ao nível das tags do plano** (§7.2), não carta a carta:
+     cada eixo do `game_plan` é marcado pelo Diogo como recurso (o que o
+     plano consome — p. ex. o tipo Equipment), motor (o que o converte de
+     forma repetida) ou payoff (o que ganha com ele — `synergy-equipment`
+     marca quem gosta de equipment, §8.3). **Sem proporção alvo** entre os
+     três: só medida e mostrada. O alvo é o total de 30 do template.
+   - **Re-medir contra o §8.6** depois da troca: mudar os alvos muda quais
+     cortes são "por folga" e quais estão protegidos.
+7. **Shelob como segundo conjunto de validação.** Importar o deck, guardar o
+   plano, o Diogo dá o veredicto às recomendações como fez com o Limit
+   Break (§8.6), num `tools/validation/shelob.json`. Serve para confirmar
+   que as correções não estão sobreajustadas ao Limit Break — se uma
+   correção melhora um e piora o outro, não está feita.
+
 **Aberto, sem ordem:**
 
-- **Alvos do §7.1 escritos à mão.** Os cortes "por folga" dependem deles e
-  nenhum foi validado contra decks reais — reserva do Diogo (30 out): trocar
-  ramp ou remoção por uma criatura é a decisão mais arriscada da lista. Estes
-  cortes vão marcados como tal até os alvos terem base.
 - **Pesos do score** (`w_eixo`, `w_papel`, `w_evitar`, força) — sliders na
   UI; os valores por omissão só se fixam medindo contra o §8.6.
 - **`synergy-X` → `type_line`** só cobre X que seja tipo/subtipo literal
   (equipment, artifact, vehicle…); `synergy-graveyard`, `synergy-historic`
   ficam sem cobertura até o Diogo os curar à mão como eixo.
-- **Validação só no Limit Break** — confirmar no Shelob que as correções
-  generalizam, depois de ele ser importado.
 - **LLM da Fase D** — falta decidir como a app autentica a Anthropic API.
 
 **Trabalho futuro:** catálogo de precons no builder, a partir do
