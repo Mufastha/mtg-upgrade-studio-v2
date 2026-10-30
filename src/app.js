@@ -5,7 +5,7 @@ import { getAll, clearStore } from './db/idb.js';
 import { buildCollectionRows } from './ui/collection-view.js';
 import { buildDeckSummaries, buildDeckCardRows, buildDeckMetrics } from './ui/deck-view.js';
 import { ROLE_KEYS, ROLE_LABELS, getEstablishedRoleForTag } from './rules/deck-metrics.js';
-import { seedGamePlan } from './rules/game-plan.js';
+import { suggestPlanAxes } from './rules/game-plan.js';
 import { resolveManaBoxCsv, saveCollection, enrichFailureReasons } from './importers/manabox.js';
 import { resolveDecklist, saveDeck, renameDeck, deleteDeck, setRoleOverride, saveGamePlan } from './importers/decklist.js';
 import { exportPersonalData, importPersonalData, FORMAT as PERSONAL_DATA_FORMAT } from './data/personal.js';
@@ -302,39 +302,56 @@ function setupDeckView(cards) {
       `</td></tr>`;
   }
 
-  // §7.2 - plano de jogo semeado das oracle_tags do commander, sempre
-  // revisto/editado pelo Diogo antes de guardar (nunca aceite automático).
-  // Guardado por deck (game-plan.js: seedGamePlan / decklist.js:
-  // saveGamePlan), não por configuração - o commander já amarra o deck a
-  // um plano.
+  // §7.2 - plano de jogo. Só os eixos guardados pelo Diogo contam para a
+  // relevância (§8.3); o formulário começa com o que está guardado (ou
+  // vazio) e mostra propostas - das 99 e do commander - com a evidência de
+  // cada uma, para ele escolher. Guardado por deck (decklist.js:
+  // saveGamePlan), não por configuração.
   function renderGamePlanRow(deckId) {
     const deck = decks.find((d) => d.deck_id === deckId);
     const commander = cardsByOracleId.get(deck?.commander_oracle_id);
-    const plan = deck?.game_plan ?? seedGamePlan(commander);
-    const seeded = !deck?.game_plan;
+    const plan = deck?.game_plan ?? { synergy_tags: [], archetype: '', avoid_tags: [] };
+    const saved = Boolean(deck?.game_plan);
+    const ownCards = deckCards.filter((dc) => dc.deck_id === deckId);
+    const suggestions = suggestPlanAxes(ownCards, cardsByOracleId, deck?.commander_oracle_id);
 
-    // Mostra quais das tags semeadas já são papel do §7.1 (função), para
-    // distinguir de eixo de sinergia (forma/tema) ao curar - nunca remove
-    // sozinha, só assinala (o Diogo decide se dilui o eixo ou não).
+    // Das tags já escolhidas, quais são papel do §7.1 (função, pesa menos
+    // do que o eixo) - só assinala, nunca remove.
     const roleTags = plan.synergy_tags
       .map((tag) => ({ tag, role: getEstablishedRoleForTag(tag) }))
       .filter((x) => x.role);
     const roleHint = roleTags.length
-      ? `<p><strong>Já são papel do §7.1, não eixo de sinergia</strong> (a app não remove sozinha, considera tirar ao curar): ` +
+      ? `<p><strong>Já são papel do §7.1, contam menos do que o eixo:</strong> ` +
         roleTags.map((x) => `${escapeHtml(x.tag)} → ${ROLE_LABELS[x.role]}`).join(', ') +
         `</p>`
+      : '';
+
+    const addButton = (tag) =>
+      `<button type="button" class="carta-papel" data-action="acrescentar-eixo" data-deck-id="${deckId}" data-tag="${escapeHtml(tag)}">+ ${escapeHtml(tag)}</button>`;
+    const axisList = suggestions.axes.length
+      ? suggestions.axes
+          .map((a) =>
+            `${addButton(a.tag)} ${a.cardsInDeck} cartas, ${a.enrichment.toFixed(0)}× o catálogo ` +
+            `(${escapeHtml(a.source)}${a.inCommander ? ', também no commander' : ''}) — ${escapeHtml(a.examples.join(', '))}`
+          )
+          .join('<br>')
+      : '(nenhuma tag se destaca nas 99)';
+    const commanderOnly = suggestions.commanderOnly.length
+      ? `<br><em>Do commander, sem confirmação nas 99:</em> ${suggestions.commanderOnly.map(addButton).join(' ')}`
       : '';
 
     return `<tr class="deck-plano"><td colspan="6">` +
       `<label>Arquétipo (texto livre curto, ex. "equipment voltron"):<br>` +
       `<input type="text" data-plano-campo="archetype" data-deck-id="${deckId}" value="${escapeHtml(plan.archetype)}"></label><br>` +
-      `<label>Eixos de sinergia — semeados das oracle_tags de ${escapeHtml(commander?.name ?? '(sem commander)')}, separados por vírgula:<br>` +
+      `<label>Eixos de sinergia — só estes contam para as recomendações, separados por vírgula:<br>` +
       `<textarea data-plano-campo="synergy" data-deck-id="${deckId}" rows="2">${escapeHtml(plan.synergy_tags.join(', '))}</textarea></label>` +
       roleHint +
+      `<p><strong>Propostas a partir das 99</strong> (tags concentradas no deck face ao catálogo — propostas, não eixos; ` +
+      `um precon traz temas que podes não querer):<br>${axisList}${commanderOnly}</p>` +
       `<label>Linhas indesejadas (tags a evitar em recomendações, separadas por vírgula):<br>` +
       `<input type="text" data-plano-campo="avoid" data-deck-id="${deckId}" value="${escapeHtml(plan.avoid_tags.join(', '))}"></label><br>` +
       `<button type="button" data-action="guardar-plano" data-deck-id="${deckId}">Guardar plano de jogo</button>` +
-      (seeded ? ' <em>ainda não guardado — isto é a sugestão semeada do commander, por confirmar</em>' : '') +
+      (saved ? '' : ' <em>sem plano guardado — o motor não recomenda nada até guardares os eixos</em>') +
       `</td></tr>`;
   }
 
@@ -366,6 +383,15 @@ function setupDeckView(cards) {
     if (action === 'plano') {
       planDeckId = planDeckId === deckId ? null : deckId;
       render();
+      return;
+    }
+
+    // Só mexe no campo do formulário - nada fica guardado até "Guardar".
+    // Sem render(): redesenhar perderia o que já foi escrito no formulário.
+    if (action === 'acrescentar-eixo') {
+      const field = decksBodyEl.querySelector(`[data-plano-campo="synergy"][data-deck-id="${deckId}"]`);
+      const tags = field.value.split(',').map((t) => t.trim()).filter(Boolean);
+      if (!tags.includes(btn.dataset.tag)) field.value = [...tags, btn.dataset.tag].join(', ');
       return;
     }
 

@@ -763,58 +763,57 @@ mostrado, sem entrar em "papéis em falta"). **Papéis em falta: disrupção
 correção de 5 de setembro, mas continua acima do alvo de 8, não entra na
 lista de papéis em falta.
 
-**7.2 Declarada (formulário).** Define o **plano de jogo** do deck — o que a
-Fase C do §8 usa para pontuar cada carta. Semeado automaticamente a partir das
-`oracle_tags` do commander e confirmado/ajustado pelo Diogo; trinta segundos
-por deck, nunca formulário em branco.
+**7.2 Declarada (formulário).** Define o **plano de jogo** do deck — os eixos
+que a relevância do §8.3 usa para pontuar cada carta. **Só os eixos guardados
+pelo Diogo contam**; sem plano guardado, o motor não recomenda nada.
 
-Confirmado com os dois commanders possíveis do Limit Break: `Cloud,
-Ex-SOLDIER` tem `synergy-equipment`, `quick-equip`, `power-matters-self` —
-plano de equipamento; `Tifa, Martial Artist` tem `power-matters`,
-`extra-combat-phase`, `extra-untap`, **sem nenhuma tag de equipamento** —
-plano de combates extra. Mesmo deck, dois commanders possíveis, dois planos
-distintos com as mesmas contagens de papel do §7.1 — é exatamente por isto
-que os alvos do §7.1 nunca podem ser o motor de recomendação (§8), só aviso
-estrutural.
+O formulário começa com o plano guardado, ou vazio, e mostra **propostas** com
+a evidência de cada uma — nunca pré-preenche o campo:
+
+- **A partir das 99** (`suggestPlanAxes`, `src/rules/game-plan.js`): tags e
+  tipos concentrados no deck face ao catálogo — pelo menos 3 cartas e pelo
+  menos 3× a frequência no catálogo (limiares de apresentação, não de
+  decisão). Um tipo concentrado (Equipment) é proposto como a tag de
+  sinergia que o representa (`synergy-equipment`) quando ela existe no
+  catálogo, com a evidência dos dois juntos.
+- **Do commander**, à parte: as tags dele que as 99 não confirmam.
+- Tags que já são papel do §7.1 vêm separadas — medem função, não tema, e
+  dentro do plano pesam menos do que o eixo.
+
+`cycle-*` nunca é proposto (bookkeeping da Scryfall, reprovado no teste de
+dispersão do §7.1).
+
+Porquê propostas e não semente: o plano semeado das tags do commander media
+**parecença** com ele, não sinergia (§8.0) — `attacking-matters-self`,
+`firebend-like`, `refund` são o que o Cloud *é*, não o que ele *quer*. E as 99
+de um precon trazem temas que o dono não quer: no Limit Break aparecem
+`synergy-legendary` (o Diogo rejeita Merry, "carta para decks de lendas") e
+o tema de tokens Soldier (corta Heidegger e SOLDIER Military Program).
+
+Limit Break (30 out 2026): as propostas mais fortes são `quick-equip` (7
+cartas, 36×), `french-vanilla-equipment` (3, 30×) e `synergy-equipment` (10
+cartas, 29×, + tipo Equipment em 16); `firebend-like`, `refund`,
+`repeatable-treasures` ficam como "do commander, sem confirmação nas 99".
+Testado de ponta a ponta no Chrome: o formulário começa vazio, as propostas
+acrescentam-se sem duplicar, e o plano guardado volta a aparecer.
 
 ```
 game_plan {
   deck_id,
-  synergy_tags: [oracle_tag],  // semeado do commander, editável
+  synergy_tags: [oracle_tag],  // eixos escolhidos pelo Diogo
   archetype,                   // texto livre curto, ex. "equipment voltron"
   avoid_tags: [oracle_tag]     // linhas indesejadas
 }
 ```
 
 `untouchable` continua em `deck_config` (§5) — protege uma carta de aparecer
-como corte numa configuração específica; não é sobre o plano em si, por isso
-não muda de sítio.
+como corte numa configuração específica; não é sobre o plano em si.
 
-**Implementado em 5 de setembro de 2026.** `seedGamePlan`
-(`src/rules/game-plan.js`) copia as `oracle_tags` do commander, com um
-único filtro: **prefixo `cycle-*` sai da semente.** Não é curadoria do
-Diogo — é bookkeeping da Scryfall para agrupar ciclos e reimpressões
-dentro de um set (`cycle-fic-face-commander`, presente em Cloud e em
-Tifa), sem relação nenhuma com jogabilidade, e já tinha reprovado no
-teste de dispersão do §7.1 (1 386 tags, 55% sem papel). Remover isto é
-tirar ruído medido, não decidir o que é plano — nenhum outro filtro
-existe: inventar mais seria decidir por ele o que é ou não eixo de
-sinergia, o oposto do que esta camada faz.
-
-**Revisto no mesmo dia — distinguir papel de eixo de sinergia na
-semente.** Tags como `burst-draw`, `draw-engine` e `repeatable-pure-draw`
-descrevem **função** (já papel do §7.1, Draw), não **eixo de sinergia**
-(o tema que dá identidade ao plano). Deixadas no plano sem distinção,
-o scoring do §8 premiaria qualquer carta que compre cartas e o eixo de
-equipamento do Cloud diluir-se-ia. A app **não decide isto por ninguém**:
-o formulário anota, ao lado do campo de eixos de sinergia, quais das
-tags semeadas já são papel — `getEstablishedRoleForTag` em
-`deck-metrics.js`, a mesma tabela do §7.1, consultada tag a tag — e para
-que papel, sem as remover sozinha. Confirmado com o Cloud: `burst-draw`,
-`draw-engine` e `repeatable-pure-draw` aparecem anotadas → Draw;
-`synergy-equipment`, `quick-equip`, `power-matters-self` ficam sem
-anotação — são o eixo de sinergia genuíno. O Diogo decide, ao curar, se
-tira as anotadas.
+O contraste entre os dois commanders possíveis do Limit Break continua
+válido como prova de que o plano depende do commander escolhido (Cloud:
+equipment; Tifa: combates extra, `power-matters`, nenhuma tag de equipment)
+— é por isto que os alvos do §7.1 nunca podem ser o motor de recomendação.
+Não prova que sobrepor tags com o commander encontre boas cartas.
 
 **7.3 Sintetizada (LLM).** O modelo lê a lista mais as métricas e propõe um
 perfil em JSON estruturado. **Sempre revisto e editado pelo utilizador antes de
@@ -936,10 +935,25 @@ Pesos (`w_eixo`, `w_papel`, `w_evitar`, e o de força quando existir): sliders
 visíveis, nunca constantes no código. Os valores por omissão só se fixam
 medindo contra o conjunto de validação (8.6).
 
-**Estado do código** (`src/rules/recommendation-score.js`, `scoreCard`): ainda
-o modelo de 27 de setembro — trata toda a tag do plano que não seja papel como
-eixo, e não tem sinal de força. Por rever quando os eixos curados (§7.2) e
-a fonte de força existirem.
+**Estado do código** (`src/rules/recommendation-score.js`): relevância só a
+partir do plano guardado — sem plano, `generateRecommendations` recusa
+("plano de jogo por confirmar"). O casamento por tipo cobre `synergy-X` e
+`typal-X`. **Ainda sem sinal de força.**
+
+**Medição com um plano curado (30 out 2026)** — hipótese só de equipment
+(`synergy-equipment`, `quick-equip`), escolhida por mim a partir das tuas
+razões, **não** curada por ti: adições — 0 das 4 escolhas, 0 das 6
+rejeitadas, 10 por julgar; cortes — 4 das 4 escolhas, 4 das 6 rejeitadas, 2
+por julgar. As adições rejeitadas desaparecem todas (Goldspan Dragon,
+Tributary Instructor…), mas as escolhidas também. A causa: com eixos curados,
+as 655 candidatas relevantes ficam em três níveis de score — 1 carta com 9,
+70 com 6, 584 com 3. Raubahn e Dáin empatam com 69 outras; Jor Kadeen,
+Diamond Pick-Axe e Stoneforge Mystic com 583. Dentro de cada nível a ordem é
+a do nome (último recurso determinístico), e as 10 adições saem de A a B.
+**A relevância curada é necessária e não chega: sem sinal de força o motor
+não consegue ordenar dentro do eixo.** Nenhum desempate (custo de mana, por
+exemplo) é introduzido sem fonte e sem medição — fica para a decisão sobre
+os dados do EDHREC (§12).
 
 ### 8.4 Cortes, emparelhamento e avaliação do lote
 
@@ -1058,9 +1072,20 @@ deck resolve-se nessa segunda passagem, não antes.
 | Austere Command | rejeitada | não corta board wipes sem manter um número saudável; talvez por um melhor |
 | Bastion Protector | rejeitada | proteção e pump do commander — essencial |
 
-**Linha de base** (motor de 27 set, catálogo de 21 set, plano = semente não
-curada): adições — 4 das 4 escolhas, 6 das 6 rejeitadas no top 10; cortes — 4
-das 4 escolhas, 6 das 6 rejeitadas.
+**Registo de medições** (escolhas / rejeitadas / por julgar no top 10;
+`measure.mjs` com `--semente`, `--plano=<ficheiro>` ou o `game_plan` do
+conjunto, e `--detalhe` para pares e lote):
+
+| Data | Alteração | Plano | Adições | Cortes |
+|---|---|---|---|---|
+| 30 out 2026 | linha de base (motor de 27 set, catálogo de 21 set) | semente do commander | 4/4 · 6/6 · 0 | 4/4 · 6/6 · 0 |
+| 30 out 2026 | catálogo de 26 out + barreiras de bracket (B3) | semente | 4/4 · 6/6 · 0 | 4/4 · 6/6 · 0 |
+| 30 out 2026 | emparelhamento por papel, lote avaliado | semente | 4/4 · 6/6 · 0 | 4/4 · 6/6 · 0 |
+| 30 out 2026 | relevância só de eixos curados | hipótese só de equipment, **não curada** | 0/4 · 0/6 · 10 | 4/4 · 4/6 · 2 |
+
+A última linha não é um resultado do motor com o teu plano — é uma hipótese
+minha, para ver o efeito da curadoria. As 10 adições saíram por ordem
+alfabética dentro de um empate de 70 cartas (§8.3).
 
 ---
 
@@ -1246,11 +1271,13 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 2. ~~**Emparelhamento por papel e lote avaliado como deck**~~ — feito a 30 out
    2026 (§8.4). Não mexeu no conjunto de validação: a causa das más escolhas
    é a relevância (ponto 3).
-3. **Eixos curados e sugestão a partir das 99** (§7.2, §8.3). Hoje o score
-   trata como eixo, com o peso máximo, toda a tag do plano que não seja papel
-   do §7.1.
+3. ~~**Eixos curados e sugestão a partir das 99**~~ — feito a 30 out 2026
+   (§7.2, §8.3). Falta o Diogo guardar o plano do Limit Break; o conjunto de
+   validação passa a medir-se com esse plano (campo `game_plan` em
+   `tools/validation/limit-break.json`).
 4. **Sinal de força** (§8.3). O motor não tem nenhum desde que
-   `edhrec_rank` saiu do score. Investigar os dados por commander do EDHREC:
+   `edhrec_rank` saiu do score — e a medição com eixos curados mostrou que é
+   o que falta: dentro do eixo, centenas de candidatas empatam. Investigar os dados por commander do EDHREC:
    o que existe, condições de uso, e como guardar em cache sem quebrar a
    invariante 10 — mostrar ao Diogo antes de implementar.
 

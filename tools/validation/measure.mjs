@@ -3,7 +3,13 @@
 // "X das tuas escolhas no top 10, Y das rejeitadas".
 //
 // Uso (a decklist é dado pessoal, fica fora do repositório):
-//   node tools/validation/measure.mjs "<caminho da decklist>" [validation.json] [--detalhe]
+//   node tools/validation/measure.mjs "<caminho da decklist>" [validation.json] [opções]
+//
+// Plano de jogo (relevância só a partir de um plano curado, §8.3), por
+// esta ordem: --plano=<ficheiro.json> | game_plan do conjunto de validação
+// | --semente (tags do commander, só para reproduzir a linha de base).
+// --detalhe mostra pares, cortes saltados e o lote antes/depois;
+// --sugestoes mostra os eixos sugeridos a partir das 99 (§7.2).
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +53,34 @@ const { commander, candidates, steps, reviewByOracleId } = generateCandidates(ca
   config,
   bracketRules,
 });
-const gamePlan = validation.game_plan ?? seedGamePlan(commander);
+const planArg = args.find((a) => a.startsWith('--plano='));
+let gamePlan;
+let planLabel;
+if (planArg) {
+  const planPath = planArg.slice('--plano='.length);
+  gamePlan = await readJson(planPath);
+  planLabel = `ficheiro ${path.basename(planPath)}${gamePlan.note ? ` (${gamePlan.note})` : ''}`;
+} else if (validation.game_plan) {
+  gamePlan = validation.game_plan;
+  planLabel = 'curado (conjunto de validação)';
+} else if (args.includes('--semente')) {
+  gamePlan = seedGamePlan(commander);
+  planLabel = 'semente do commander (não curado - linha de base)';
+} else {
+  console.error('Sem plano curado no conjunto de validação: usa --plano=<ficheiro> ou --semente (linha de base).');
+  process.exit(1);
+}
+
+if (args.includes('--sugestoes')) {
+  const { suggestPlanAxes } = await import('../../src/rules/game-plan.js');
+  const s = suggestPlanAxes(deckCards, cardsByOracleId, commanderOracleId);
+  console.log('Eixos sugeridos a partir das 99:');
+  for (const a of s.axes) {
+    console.log(`  ${a.tag.padEnd(28)} ${String(a.cardsInDeck).padStart(2)} cartas, ${a.enrichment.toFixed(1)}×  (${a.source}${a.inCommander ? ', também no commander' : ''})  ${a.examples.join(', ')}`);
+  }
+  console.log(`Já são papel do §7.1: ${s.roles.map((r) => `${r.tag} (${r.role})`).join(', ')}`);
+  console.log(`Só no commander, sem confirmação nas 99: ${s.commanderOnly.join(', ')}\n`);
+}
 
 const { pairs, skipped, batch } = generateRecommendations(deckCards, candidates, gamePlan, cardsByOracleId, {
   config,
@@ -58,7 +91,7 @@ const { pairs, skipped, batch } = generateRecommendations(deckCards, candidates,
 
 console.log(
   `${validation.deck} — catálogo de ${manifest.built_at.slice(0, 10)}, bracket ${config.target_bracket}, ` +
-    `plano: ${validation.game_plan ? 'curado' : 'semente do commander (não curado)'}\n`
+    `plano: ${planLabel} — eixos ${gamePlan.synergy_tags.join(', ')}\n`
 );
 
 console.log('Fase A/B:');

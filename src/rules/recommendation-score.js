@@ -1,9 +1,10 @@
 // §8.3 Fase C (relevância) e §8.4 (cortes, emparelhamento, lote).
 //
 // Relevância: sobreposição de tags/tipo com o plano de jogo (§7.2). O
-// plano pontua, nunca filtra a Fase A. Estado do código (§8.3): o score
-// ainda trata como eixo toda a tag do plano que não seja papel do §7.1 -
-// por rever quando houver eixos curados e um sinal de força.
+// plano pontua, nunca filtra a Fase A, e só um plano guardado pelo Diogo
+// conta - sem plano curado, não há recomendações (a semente do commander
+// media parecença com ele, §8.0). Dentro do plano, as tags que são papel
+// do §7.1 pesam menos do que o eixo. Ainda sem sinal de força (§8.3).
 //
 // edhrec_rank NUNCA entra no score nem no desempate - é popularidade global,
 // sem variante por identidade de cor nem por commander. Fica ao lado de
@@ -36,19 +37,22 @@ function matchedTags(cardTags, planTagList) {
   return cardTags.filter((t) => set.has(t));
 }
 
-// "synergy-X" marca cartas que se dão bem com X; o X em si (um Equipment)
-// não carrega a tag, tem o TIPO. Procura a palavra depois de "synergy-"
-// como palavra inteira no type_line - só acerta quando é tipo/subtipo
-// literal (equipment, artifact, vehicle...); synergy-graveyard/-historic
-// nunca batem por esta via (§12).
+// "synergy-X"/"typal-X" marcam cartas que se dão bem com X; o X em si (um
+// Equipment, um Soldier) não carrega a tag, tem o TIPO. Procura a palavra
+// depois do prefixo como palavra inteira no type_line - só acerta quando é
+// tipo/subtipo literal (equipment, artifact, soldier...);
+// synergy-graveyard/-historic nunca batem por esta via (§12).
+const TYPE_AXIS_PREFIXES = ['synergy-', 'typal-'];
+
 function typeLineWords(typeLine) {
   return new Set((typeLine ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean));
 }
 
 function matchedTypeAxisWords(typeLine, axisTags) {
-  const synergyTypeWords = axisTags
-    .filter((t) => t.startsWith('synergy-'))
-    .map((t) => t.slice('synergy-'.length));
+  const synergyTypeWords = axisTags.flatMap((t) => {
+    const prefix = TYPE_AXIS_PREFIXES.find((p) => t.startsWith(p));
+    return prefix ? [t.slice(prefix.length)] : [];
+  });
   if (synergyTypeWords.length === 0) return [];
   const words = typeLineWords(typeLine);
   return synergyTypeWords.filter((w) => words.has(w));
@@ -205,6 +209,9 @@ export function generateRecommendations(deckCards, candidates, gamePlan, cardsBy
   } = options;
   if (!config) throw new Error('Recomendações exigem uma configuração de deck (§5).');
   if (!bracketRules) throw new Error('Recomendações exigem as regras de bracket (§6).');
+  if (!gamePlan?.synergy_tags?.length) {
+    throw new Error('Plano de jogo por confirmar: guarda os eixos do deck (§7.2) antes de pedir recomendações.');
+  }
 
   const gameChangersMax = bracketRules.brackets[String(config.target_bracket)].game_changers_max;
   const untouchable = new Set(config.untouchable);
