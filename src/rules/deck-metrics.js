@@ -374,6 +374,32 @@ function applyOverrides(autoRoleCards, overrides, qtyByOracleId, cardsByOracleId
   return result;
 }
 
+// Papéis de uma carta não-terreno: os das tags estabelecidas; sem nenhum,
+// a sugestão mais forte entre as outras tags, marcada como incerta - nunca
+// em silêncio (§7.1). Sem sugestão que bata o limiar, fica sem papel.
+function roleEntriesOf(card, hints) {
+  const roles = classifyRoles(card.oracle_tags);
+  const entries = Object.entries(roles)
+    .filter(([, included]) => included)
+    .map(([role]) => ({ role, uncertain: false }));
+  if (entries.length > 0) return entries;
+
+  let bestHint = null;
+  for (const tag of card.oracle_tags) {
+    const hint = hints.get(tag);
+    if (hint && (!bestHint || hint.share > bestHint.share)) bestHint = hint;
+  }
+  return bestHint ? [{ role: bestHint.role, uncertain: true }] : [];
+}
+
+// A mesma classificação do §7.1, para uma carta solta (ex. uma candidata a
+// adição, que ainda não está em deck nenhum). Terrenos não têm papel aqui -
+// contam para LAND_TARGET à parte.
+export function cardRoles(card, cardsByOracleId) {
+  if (card.type_line.includes('Land')) return [];
+  return roleEntriesOf(card, buildTagRoleHints(cardsByOracleId)).map((e) => e.role);
+}
+
 export function computeDeckMetrics(deckCards, cardsByOracleId, overrides = []) {
   const landCards = [];
   const nonLandManaSourceCards = [];
@@ -403,25 +429,8 @@ export function computeDeckMetrics(deckCards, cardsByOracleId, overrides = []) {
 
     if (hasAny(tags, MANA_SOURCE_TAGS)) nonLandManaSourceCards.push(entry);
 
-    const roles = classifyRoles(tags);
-    let hasEstablishedRole = false;
-    for (const [role, included] of Object.entries(roles)) {
-      if (included) {
-        autoRoleCards[role].push({ ...entry, uncertain: false });
-        hasEstablishedRole = true;
-      }
-    }
-
-    // Sem nenhuma tag estabelecida: procura a sugestão mais forte entre as
-    // outras tags da carta, marcada como incerta - nunca em silêncio
-    // (§7.1). Sem sugestão que bata o limiar, fica legitimamente sem papel.
-    if (!hasEstablishedRole) {
-      let bestHint = null;
-      for (const tag of tags) {
-        const hint = hints.get(tag);
-        if (hint && (!bestHint || hint.share > bestHint.share)) bestHint = hint;
-      }
-      if (bestHint) autoRoleCards[bestHint.role].push({ ...entry, uncertain: true });
+    for (const { role, uncertain } of roleEntriesOf(card, hints)) {
+      autoRoleCards[role].push({ ...entry, uncertain });
     }
   }
 

@@ -977,8 +977,25 @@ plano; se for o único a preencher um papel, o substituto tem de o preencher.
 
 **Critério de paragem:** `max_changes` (§5), nunca um score alvo.
 
-**Estado do código:** a elegibilidade está implementada; o emparelhamento ainda
-é por índice e o lote ainda não é avaliado como deck — por implementar.
+**Implementado a 30 out 2026** (`generateRecommendations`,
+`src/rules/recommendation-score.js`): as trocas escolhem-se uma a uma sobre o
+deck que vai mudando — o melhor corte elegível no estado atual, depois a
+melhor adição *para esse corte* (só adições do papel que o corte deixaria
+abaixo do alvo; nenhuma troca cria faltas novas nem passa o limite de Game
+Changers), depois a troca aplica-se antes da seguinte. Uma troca tira uma
+cópia (terrenos básicos em pilha) e "única no papel" conta cópias. Cortes sem
+adição válida ficam em `skipped` com a razão, nunca na lista. No fim, papéis,
+terrenos, Game Changers, CMC médio e checklist de bracket antes e depois.
+Testes com catálogo sintético em `tests/recommendation.test.mjs` para os casos
+que o Limit Break não exerce (reposição obrigatória, folga gasta ao longo do
+lote, limite de Game Changers no lote, cortes forçados).
+
+Limit Break: o conjunto de validação **não mexe** (4/4 escolhas e 6/6
+rejeitadas, nas duas listas) — nenhum dos dez cortes precisava de reposição,
+por isso saem as mesmas 20 cartas; o que as escolhe mal é a relevância (§8.3),
+não o emparelhamento. O ganho é a avaliação do lote, que antes não existia:
+Draw 9 → 13, Remoção 9 → 8 (no alvo), terrenos 37 → 36 (no alvo), Ramp 11 →
+12, CMC médio 3,08 → 3,02.
 
 ### 8.5 Fase D — Reordenação e justificação (LLM)
 
@@ -986,10 +1003,11 @@ Apenas sobre o top ~40. Todo o nome de carta que o LLM produza é resolvido
 contra o catálogo (P5); se não resolver, é descartado.
 
 **Parte determinística implementada** (`src/rules/recommendation-justification.js`):
-por par, que papel sai, que eixo/papel entra (`scoreCard` devolve as tags e
-palavras de tipo que bateram), e o grau de confiança do corte. A justificação
-vem de factos computados, nunca do LLM. Os textos de confiança acompanham a
-revisão de 8.4 ("sem papel reconhecido" deixa de dizer "alta").
+por par, que papel sai, se a adição o repõe ou com que contagem o deck fica
+quando não repõe, que eixo/papel entra (`scoreCard` devolve as tags e palavras
+de tipo que bateram), e o tier do corte com o que ele realmente significa
+("sem papel reconhecido" já não diz "confiança alta"). A justificação vem de
+factos computados, nunca do LLM.
 
 **Por implementar:** a reordenação por LLM. O projeto nunca chamou a Anthropic
 API; falta decidir como a app autentica (chave do Diogo no browser? outro
@@ -1225,8 +1243,9 @@ para o Shelob fazem sentido para o Diogo, que conhece o deck a fundo.
 
 1. ~~**Barreiras de bracket na Fase B**~~ — feito a 30 out 2026 (§8.2),
    com o limite de Game Changers ao longo de um lote a cargo do ponto 2.
-2. **Emparelhamento por papel e lote avaliado como deck** (§8.4). Hoje os pares
-   são por índice e cada corte é avaliado sem saber dos outros do mesmo lote.
+2. ~~**Emparelhamento por papel e lote avaliado como deck**~~ — feito a 30 out
+   2026 (§8.4). Não mexeu no conjunto de validação: a causa das más escolhas
+   é a relevância (ponto 3).
 3. **Eixos curados e sugestão a partir das 99** (§7.2, §8.3). Hoje o score
    trata como eixo, com o peso máximo, toda a tag do plano que não seja papel
    do §7.1.

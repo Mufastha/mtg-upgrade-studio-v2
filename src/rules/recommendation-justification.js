@@ -1,65 +1,54 @@
-// §8 Fase D (parte determinística) - justificação por par corte/adição.
-// Invariante 4/P5: determinístico antes do LLM - todos os factos aqui vêm
-// de computação real (papéis e folga do §7.1 via computeCutTiers, tags/
-// tipo do plano via scoreCard), nunca inventados. Se um dia um LLM entrar
-// nisto (por implementar - falta decidir como a app autentica a
-// Anthropic API, nunca feito neste projeto), o trabalho dele é dar prosa
-// a estes factos, nunca produzir factos novos.
+// §8.5 Fase D (parte determinística) - justificação por par corte/adição.
+// Invariante 4: determinístico antes do LLM - todos os factos vêm de
+// computação real (papéis e folga do §7.1, tags/tipo do plano), nunca
+// inventados. Um LLM, quando existir, só dá prosa a isto.
 //
-// Pedido do Diogo (27 de setembro de 2026): "uma carta com score 15
-// contra 0 não me diz nada se eu não perceber a troca" - a justificação
-// tem de dizer que papel sai, que papel entra, e o que o deck ganha, não
-// só o número do score.
+// Diz que papel sai, se a adição o repõe, e o que a adição traz - um score
+// de 15 contra 0 não diz nada sem perceber a troca.
 import { ROLE_LABELS, getEstablishedRoleForTag } from './deck-metrics.js';
 
 function roleLabel(role) {
   return role === 'terrenos' ? 'Terrenos' : (ROLE_LABELS[role] ?? role);
 }
 
-function describeCut(cut) {
-  if (cut.tier === 'primeira-a-sair') {
-    return 'sem papel do §7.1 e sem nenhuma tag do plano - sai sem custo estrutural conhecido';
+function describeCut({ cut, replacedRoles, unreplacedRoles }) {
+  if (cut.tier === 'sem-papel-reconhecido') {
+    return 'sem papel do §7.1 nem tag do plano — fora do nosso vocabulário, o que não prova que seja fraca';
   }
-  const roles = cut.occupiedRoles.map(roleLabel).join(', ');
-  const folga = cut.minSlack != null ? cut.minSlack : '?';
-  return (
-    `ocupa ${roles} (folga de ${folga} sobre o alvo do §7.1) - o deck continua a cumprir o alvo ` +
-    'depois do corte, mas esta decisão depende desse alvo estar certo (§12, ainda por validar)'
-  );
+  const parts = [`ocupa ${cut.occupiedRoles.map(roleLabel).join(', ')}`];
+  if (replacedRoles.length > 0) parts.push(`reposto pela adição: ${replacedRoles.map(roleLabel).join(', ')}`);
+  if (unreplacedRoles.length > 0) {
+    const detail = unreplacedRoles.map((r) => `${roleLabel(r.role)} fica ${r.after}/${r.target}`).join(', ');
+    parts.push(`não reposto, ${detail} — depende de o alvo do §7.1 estar certo`);
+  }
+  return parts.join('; ');
 }
 
 function describeAdd(add) {
   const gains = [];
-  if (add.axisTagsMatched.length > 0) {
-    gains.push(`eixo do plano (${add.axisTagsMatched.join(', ')})`);
-  }
-  if (add.axisTypeMatched.length > 0) {
-    gains.push(`eixo por tipo de carta (${add.axisTypeMatched.join(', ')})`);
-  }
+  if (add.axisTagsMatched.length > 0) gains.push(`eixo do plano (${add.axisTagsMatched.join(', ')})`);
+  if (add.axisTypeMatched.length > 0) gains.push(`eixo por tipo de carta (${add.axisTypeMatched.join(', ')})`);
   if (add.roleTagsMatched.length > 0) {
     const roles = [...new Set(add.roleTagsMatched.map((t) => roleLabel(getEstablishedRoleForTag(t))))];
     gains.push(`papel do §7.1 já coberto: ${roles.join(', ')} (via ${add.roleTagsMatched.join(', ')})`);
   }
-  if (gains.length === 0) {
-    return 'nenhuma tag do plano nem papel do §7.1 identificado - candidata mais fraca do lote';
-  }
-  return gains.join('; ');
+  if (add.roles.length > 0) gains.push(`papéis: ${add.roles.map(roleLabel).join(', ')}`);
+  if (add.review) gains.push(`a verificar à mão: ${add.review}`);
+  return gains.length > 0 ? gains.join('; ') : 'nenhuma tag do plano nem papel do §7.1';
 }
 
-// Um par por vez - devolve os factos estruturados (para a UI decidir como
-// mostrar) e um resumo em português já pronto a apresentar.
-export function justifyPair({ cut, add }) {
-  const cutText = describeCut(cut);
-  const addText = describeAdd(add);
+export function justifyPair(pair) {
+  const cutText = describeCut(pair);
+  const addText = describeAdd(pair.add);
   return {
-    confidence: cut.confidence,
-    tier: cut.tier,
-    cut: { name: cut.card.name, reason: cutText },
-    add: { name: add.card.name, gain: addText },
-    summary: `Sai ${cut.card.name} (${cutText}). Entra ${add.card.name} (ganha: ${addText}).`,
+    confidence: pair.cut.confidence,
+    tier: pair.cut.tier,
+    cut: { name: pair.cut.card.name, reason: cutText },
+    add: { name: pair.add.card.name, gain: addText },
+    summary: `Sai ${pair.cut.card.name} (${cutText}). Entra ${pair.add.card.name} (${addText}).`,
   };
 }
 
 export function justifyRecommendations(pairs) {
-  return pairs.map((pair) => justifyPair(pair));
+  return pairs.map(justifyPair);
 }

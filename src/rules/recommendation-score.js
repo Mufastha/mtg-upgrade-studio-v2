@@ -1,27 +1,23 @@
-// §8 Fase C - Scoring por mérito face ao plano de jogo (§7.2). O plano
-// PONTUA, nunca filtra a Fase A: filtrar ao eixo de sinergia excluiria
-// remoção/proteção/terrenos que o deck precisa sem ligação nenhuma ao
-// tema (decisão do Diogo, 27 de setembro de 2026).
+// §8.3 Fase C (relevância) e §8.4 (cortes, emparelhamento, lote).
 //
-// synergy_tags do plano dividem-se em duas contagens, pesadas
-// separadamente - nunca somadas com o mesmo peso:
-// - eixo genuíno: tags que NÃO são papel do §7.1 (getEstablishedRoleForTag
-//   devolve null) - o tema real do plano (synergy-equipment, quick-equip).
-// - papel já coberto: tags que já são papel do §7.1 (draw-engine,
-//   burst-draw...) - sem isto, dominam por serem categorias muito
-//   maiores e afogam o eixo (testado: attacking-matters-self em 922
-//   candidatas do pool Naya do Cloud, contra 135 de synergy-equipment).
+// Relevância: sobreposição de tags/tipo com o plano de jogo (§7.2). O
+// plano pontua, nunca filtra a Fase A. Estado do código (§8.3): o score
+// ainda trata como eixo toda a tag do plano que não seja papel do §7.1 -
+// por rever quando houver eixos curados e um sinal de força.
 //
-// edhrec_rank NUNCA entra no score - é popularidade global, sem variante
-// por identidade de cor nem por commander (confirmado na documentação da
-// Scryfall), trazer isso para o score reproduziria o enviesamento que a
-// app existe para evitar. Fica visível ao lado de cada carta, só como
-// informação (decisão do Diogo, 27 de setembro de 2026).
-import { getEstablishedRoleForTag, computeDeckMetrics, ROLE_TARGETS, LAND_TARGET } from './deck-metrics.js';
+// edhrec_rank NUNCA entra no score nem no desempate - é popularidade global,
+// sem variante por identidade de cor nem por commander. Fica ao lado de
+// cada carta, só como informação.
+import {
+  getEstablishedRoleForTag,
+  computeDeckMetrics,
+  cardRoles,
+  ROLE_TARGETS,
+  LAND_TARGET,
+} from './deck-metrics.js';
+import { evaluateBracketChecklist } from './bracket.js';
 
-// Tentativos - sliders na UI, nunca constantes fixas (§8, §12). Eixo
-// genuíno pesa mais do que papel já coberto por omissão; a relação entre
-// os dois é o que se afina.
+// Tentativos - sliders na UI, nunca constantes fixas (§8.3, §12).
 export const DEFAULT_WEIGHTS = { axis: 3, role: 1, avoid: 2 };
 
 function splitPlanTags(synergyTags) {
@@ -40,21 +36,11 @@ function matchedTags(cardTags, planTagList) {
   return cardTags.filter((t) => set.has(t));
 }
 
-// "synergy-X" marca cartas que se dão bem com X (Sram, Sigarda's Aid para
-// synergy-equipment) - o X em si (Colossus Hammer, um Equipment) não
-// carrega a tag, tem o TIPO. Sem isto, o eixo premeia quem gosta de
-// equipment e corta o próprio equipment - encontrado a testar o Cloud
-// (Colossus Hammer/Hero's Heirloom/Conqueror's Flail cortados por "sem
-// sinergia", exatamente as cartas centrais do arquétipo).
-//
-// Generaliza sem lista de tipos escrita à mão: extrai a palavra depois de
-// "synergy-" e procura-a como palavra inteira no type_line. Isto só
-// acerta quando a palavra É mesmo um tipo/subtipo real (equipment,
-// artifact, vehicle, aura, instant, sorcery...) - synergy-graveyard,
-// synergy-red, synergy-historic nunca batem por esta via, porque
-// "graveyard"/"red"/"historic" nunca aparecem literalmente num type_line;
-// ficam de fora, sem cobertura, não como falso positivo. Não resolve
-// esses casos - fica registado como limite conhecido (§12).
+// "synergy-X" marca cartas que se dão bem com X; o X em si (um Equipment)
+// não carrega a tag, tem o TIPO. Procura a palavra depois de "synergy-"
+// como palavra inteira no type_line - só acerta quando é tipo/subtipo
+// literal (equipment, artifact, vehicle...); synergy-graveyard/-historic
+// nunca batem por esta via (§12).
 function typeLineWords(typeLine) {
   return new Set((typeLine ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean));
 }
@@ -68,10 +54,8 @@ function matchedTypeAxisWords(typeLine, axisTags) {
   return synergyTypeWords.filter((w) => words.has(w));
 }
 
-// Devolve, além da contagem, as tags/palavras que realmente bateram - a
-// justificação do §8 Fase D precisa de dizer O QUÊ, não só "pontuou mais"
-// (Diogo, 27 de setembro de 2026: "uma carta com score 15 contra 0 não
-// me diz nada se eu não perceber a troca").
+// Devolve, além do score, as tags/palavras que bateram - a justificação
+// (§8.5) diz O QUÊ, nunca só o número.
 export function scoreCard(card, gamePlan, weights = DEFAULT_WEIGHTS) {
   const { axis, role } = splitPlanTags(gamePlan?.synergy_tags);
   const axisTagsMatched = matchedTags(card.oracle_tags, axis);
@@ -96,131 +80,234 @@ export function scoreCard(card, gamePlan, weights = DEFAULT_WEIGHTS) {
   };
 }
 
-// Elegibilidade de corte a partir das métricas do §7.1 - desempata por
-// critério de jogo dentro do score de plano, nunca por posição/ordem de
-// inserção (era o que estava a acontecer antes: 72% do Limit Break
-// empatava a 0 e "pior primeiro" virava alfabético). Três categorias
-// (Diogo, 27 de setembro de 2026), decididas sobre papel + folga, nunca
-// sobre edhrec_rank:
-//
-// - "protegida": é a ÚNICA carta do deck a preencher algum papel com
-//   alvo (§7.1) - nunca é candidata a corte, excluída por completo (como
-//   `untouchable`, §5), independentemente do score de plano.
-// - "primeira-a-sair": não ocupa papel nenhum E não tem sinergia com o
-//   plano (score de plano 0) - o topo da fila de corte.
-// - "legítima": ocupa pelo menos um papel com alvo e esse papel tem folga
-//   (contagem do deck > alvo) - corte razoável, o papel continua servido
-//   mesmo depois.
-// - "sem-folga": ocupa papel(is) sem folga (contagem no alvo ou abaixo) e
-//   não é a única - não protegida, mas cortá-la empurra o deck para
-//   `missingRoles`; fica a seguir às legítimas, à frente de nada.
-//
-// "access" (Acesso Temporário) não tem alvo (§7.1) - nunca conta para
-// proteção nem para folga, mas ainda conta como "ocupa papel" para não
-// cair em "primeira-a-sair" à toa.
-//
-// Terrenos têm o próprio alvo (LAND_TARGET, §7.1) fora dos 9 papéis -
-// tratados aqui como um "papel" sintético (`terrenos`) para caírem no
-// mesmo mecanismo de folga/proteção, nunca em "primeira-a-sair": sem
-// isto, todo terreno sem outro papel caía direto no topo do corte só por
-// a métrica de terrenos viver fora de `roleCards` (encontrado a testar
-// contra o Limit Break real - a lista de corte ficou cheia de terrenos).
-function computeCutTiers(deckCards, cardsByOracleId, overrides = []) {
-  const metrics = computeDeckMetrics(deckCards, cardsByOracleId, overrides);
-  const tierByOracleId = new Map();
-  const landSlack = metrics.landCount - LAND_TARGET;
-  const isLandUnique = metrics.landCards.length === 1;
+// Terrenos têm alvo próprio (LAND_TARGET), fora dos papéis do §7.1 - aqui
+// contam como um "papel" sintético para o mesmo mecanismo de folga.
+const LAND_ROLE = 'terrenos';
+const targetOf = (role) => (role === LAND_ROLE ? LAND_TARGET : ROLE_TARGETS[role]);
+const isLand = (card) => card.type_line.includes('Land');
 
-  for (const dc of deckCards) {
+function rolesOfCandidate(card, cardsByOracleId) {
+  return isLand(card) ? [LAND_ROLE] : cardRoles(card, cardsByOracleId);
+}
+
+// Estado do deck num ponto do lote: contagem por papel (incluindo
+// terrenos), cartas por papel, e Game Changers.
+function deckState(deckList, cardsByOracleId, overrides) {
+  const metrics = computeDeckMetrics(deckList, cardsByOracleId, overrides);
+  const counts = { ...metrics.roleCounts, [LAND_ROLE]: metrics.landCount };
+  const cardsInRole = { ...metrics.roleCards, [LAND_ROLE]: metrics.landCards };
+  const gameChangers = deckList.filter((dc) => cardsByOracleId.get(dc.oracle_id)?.is_gamechanger).length;
+  return { metrics, counts, cardsInRole, gameChangers };
+}
+
+function occupiedRolesOf(oracleId, state) {
+  return Object.keys(state.cardsInRole).filter((role) => state.cardsInRole[role].some((e) => e.oracle_id === oracleId));
+}
+
+// Elegibilidade de corte (§8.4), sempre sobre o deck no estado atual do
+// lote - a folga gasta por uma troca já não está disponível à seguinte.
+// - protegida: única carta num papel com alvo (ou único terreno) - nunca
+//   candidata.
+// - sem-papel-reconhecido: nenhum papel do §7.1 e nenhuma tag do plano. Não
+//   quer dizer que a carta é fraca - quer dizer que está fora do nosso
+//   vocabulário (Red XIII, §8.0).
+// - por-folga: ocupa papel(is) com folga sobre o alvo - depende de alvos
+//   escritos à mão, ainda não validados.
+// - sem-folga: ocupa papel no alvo, abaixo dele, ou só papéis sem alvo
+//   (Acesso Temporário), e não é a única - por último.
+// "access" não tem alvo: nunca protege nem dá folga, mas conta como papel.
+const TIER_ORDER = { 'sem-papel-reconhecido': 0, 'por-folga': 1, 'sem-folga': 2 };
+
+export const CONFIDENCE_BY_TIER = {
+  'sem-papel-reconhecido': 'sem papel reconhecido — fora do vocabulário do §7.1 e do plano, não quer dizer que seja fraca',
+  'por-folga': 'por folga — depende de um alvo do §7.1 ainda por validar',
+  'sem-folga': 'sem folga — ocupa papel no alvo, abaixo dele, ou sem alvo definido; fica para o fim',
+};
+
+// Uma troca tira UMA cópia (terrenos básicos vêm em pilha). "Única no
+// papel" conta cópias, não entradas - um Forest ×36 não é o único terreno.
+function cutInfoOf(oracleId, state) {
+  const occupiedRoles = occupiedRolesOf(oracleId, state);
+  const withTarget = occupiedRoles.filter((role) => targetOf(role) != null);
+  const isUniqueFiller = withTarget.some((role) => state.counts[role] === 1);
+  const slacks = withTarget.map((role) => state.counts[role] - targetOf(role));
+  const minSlack = slacks.length > 0 ? Math.min(...slacks) : null;
+  return { occupiedRoles, isUniqueFiller, minSlack };
+}
+
+function classifyTier(cutInfo, planScore) {
+  if (cutInfo.occupiedRoles.length === 0 && planScore === 0) return 'sem-papel-reconhecido';
+  if (cutInfo.minSlack != null && cutInfo.minSlack > 0) return 'por-folga';
+  return 'sem-folga';
+}
+
+const byName = (a, b) => a.card.name.localeCompare(b.card.name);
+
+// Papéis que um corte deixaria abaixo do alvo - a adição tem de os repor.
+function rolesNeedingReplacement(cut, state) {
+  return cut.occupiedRoles.filter((role) => {
+    const target = targetOf(role);
+    return target != null && state.counts[role] - 1 < target;
+  });
+}
+
+// Uma troca é válida se não cria nenhuma falta nova contra os alvos do §7.1
+// (um papel que estava no alvo não pode ficar abaixo) nem passa o limite de
+// Game Changers do bracket (§6).
+function swapViolation(cut, add, state, gameChangersMax) {
+  const gcAfter = state.gameChangers - (cut.card.is_gamechanger ? 1 : 0) + (add.card.is_gamechanger ? 1 : 0);
+  if (add.card.is_gamechanger && gameChangersMax != null && gcAfter > gameChangersMax) {
+    return `passa o limite de Game Changers (${gcAfter}/${gameChangersMax})`;
+  }
+  const affected = new Set([...cut.occupiedRoles, ...add.roles]);
+  for (const role of affected) {
+    const target = targetOf(role);
+    if (target == null) continue;
+    const after = state.counts[role] - (cut.occupiedRoles.includes(role) ? 1 : 0) + (add.roles.includes(role) ? 1 : 0);
+    if (state.counts[role] >= target && after < target) return `deixa ${role} abaixo do alvo (${after}/${target})`;
+  }
+  return null;
+}
+
+function averageCmc(deckList, cardsByOracleId) {
+  let total = 0;
+  let n = 0;
+  for (const dc of deckList) {
     const card = cardsByOracleId.get(dc.oracle_id);
-    if (!card) continue;
+    if (!card || isLand(card)) continue;
+    total += card.cmc * dc.quantity;
+    n += dc.quantity;
+  }
+  return n > 0 ? total / n : 0;
+}
 
-    if (card.type_line.includes('Land')) {
-      tierByOracleId.set(dc.oracle_id, {
-        occupiedRoles: ['terrenos'],
-        isUniqueFiller: isLandUnique,
-        minSlack: landSlack,
+// Trocas escolhidas uma a uma sobre o deck que vai mudando (§8.4):
+// 1. o melhor corte elegível no estado atual (tier, depois score de plano,
+//    depois nome como último recurso determinístico);
+// 2. a melhor adição PARA ESSE CORTE - se o corte deixaria um papel abaixo
+//    do alvo, só servem adições desse papel; nenhuma troca cria faltas
+//    novas nem passa o limite de Game Changers;
+// 3. a troca aplica-se ao deck antes de escolher a seguinte.
+// Um corte sem adição válida não aparece (corte sem substituto é
+// recomendação incompleta) - fica em `skipped`, com a razão.
+// Com o deck acima do limite de Game Changers, os cortes forçados vêm
+// primeiro: só Game Changers são candidatos a corte até o deck caber.
+// No fim, o lote é avaliado como deck: papéis, terrenos, curva e a
+// checklist de bracket antes e depois (§6.2).
+export function generateRecommendations(deckCards, candidates, gamePlan, cardsByOracleId, options) {
+  const {
+    config,
+    bracketRules,
+    commanderOracleId = null,
+    overrides = [],
+    weights = DEFAULT_WEIGHTS,
+    reviewByOracleId = new Map(),
+  } = options;
+  if (!config) throw new Error('Recomendações exigem uma configuração de deck (§5).');
+  if (!bracketRules) throw new Error('Recomendações exigem as regras de bracket (§6).');
+
+  const gameChangersMax = bracketRules.brackets[String(config.target_bracket)].game_changers_max;
+  const untouchable = new Set(config.untouchable);
+
+  const scoredCandidates = candidates
+    .map((card) => ({
+      card,
+      ...scoreCard(card, gamePlan, weights),
+      roles: rolesOfCandidate(card, cardsByOracleId),
+      review: reviewByOracleId.get(card.oracle_id) ?? null,
+    }))
+    .sort((a, b) => b.score - a.score || byName(a, b));
+
+  const current = new Map(deckCards.map((dc) => [dc.oracle_id, dc.quantity]));
+  const toList = () => [...current].map(([oracle_id, quantity]) => ({ oracle_id, quantity }));
+  const addedIds = new Set();
+  const skippedIds = new Set();
+  const pairs = [];
+  const skipped = [];
+
+  while (pairs.length < config.max_changes) {
+    const state = deckState(toList(), cardsByOracleId, overrides);
+    const forcedGameChangerCuts = gameChangersMax != null && state.gameChangers > gameChangersMax;
+
+    const cuts = toList()
+      .filter((dc) => dc.oracle_id !== commanderOracleId)
+      .filter((dc) => !untouchable.has(dc.oracle_id) && !addedIds.has(dc.oracle_id) && !skippedIds.has(dc.oracle_id))
+      .map((dc) => {
+        const card = cardsByOracleId.get(dc.oracle_id);
+        const scored = scoreCard(card, gamePlan, weights);
+        const info = cutInfoOf(dc.oracle_id, state);
+        const tier = classifyTier(info, scored.score);
+        return { card, quantity: dc.quantity, ...scored, ...info, tier, confidence: CONFIDENCE_BY_TIER[tier] };
+      })
+      .filter((c) => !c.isUniqueFiller)
+      .filter((c) => !forcedGameChangerCuts || c.card.is_gamechanger)
+      .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || a.score - b.score || byName(a, b));
+
+    const cut = cuts[0];
+    if (!cut) break;
+
+    const needRoles = rolesNeedingReplacement(cut, state);
+    let add = null;
+    let lastViolation = null;
+    for (const candidate of scoredCandidates) {
+      if (addedIds.has(candidate.card.oracle_id)) continue;
+      if (!needRoles.every((role) => candidate.roles.includes(role))) continue;
+      const violation = swapViolation(cut, candidate, state, gameChangersMax);
+      if (violation) {
+        lastViolation = violation;
+        continue;
+      }
+      add = candidate;
+      break;
+    }
+
+    if (!add) {
+      skippedIds.add(cut.card.oracle_id);
+      skipped.push({
+        cut,
+        reason: needRoles.length > 0
+          ? `nenhuma candidata repõe ${needRoles.join(', ')}`
+          : `nenhuma candidata válida${lastViolation ? ` (${lastViolation})` : ''}`,
       });
       continue;
     }
 
-    const occupiedRoles = Object.keys(metrics.roleCards).filter((role) =>
-      metrics.roleCards[role].some((e) => e.oracle_id === dc.oracle_id)
-    );
-
-    const isUniqueFiller = occupiedRoles.some((role) => {
-      if (ROLE_TARGETS[role] == null) return false;
-      return metrics.roleCards[role].length === 1;
+    const cutRolesWithTarget = cut.occupiedRoles.filter((role) => targetOf(role) != null);
+    pairs.push({
+      cut,
+      add,
+      needRoles,
+      replacedRoles: cutRolesWithTarget.filter((role) => add.roles.includes(role)),
+      unreplacedRoles: cutRolesWithTarget
+        .filter((role) => !add.roles.includes(role))
+        .map((role) => ({ role, after: state.counts[role] - 1, target: targetOf(role) })),
     });
 
-    const slacks = occupiedRoles
-      .filter((role) => ROLE_TARGETS[role] != null)
-      .map((role) => metrics.roleCounts[role] - ROLE_TARGETS[role]);
-    const minSlack = slacks.length > 0 ? Math.min(...slacks) : null;
-
-    tierByOracleId.set(dc.oracle_id, { occupiedRoles, isUniqueFiller, minSlack });
+    if (cut.quantity > 1) current.set(cut.card.oracle_id, cut.quantity - 1);
+    else current.delete(cut.card.oracle_id);
+    current.set(add.card.oracle_id, (current.get(add.card.oracle_id) ?? 0) + 1);
+    addedIds.add(add.card.oracle_id);
   }
 
-  return tierByOracleId;
-}
+  const beforeList = deckCards.map((dc) => ({ oracle_id: dc.oracle_id, quantity: dc.quantity }));
+  const afterList = toList();
+  const summarize = (list) => {
+    const state = deckState(list, cardsByOracleId, overrides);
+    const cards = list.flatMap((dc) => Array(dc.quantity).fill(cardsByOracleId.get(dc.oracle_id)));
+    return {
+      counts: state.counts,
+      gameChangers: state.gameChangers,
+      averageCmc: averageCmc(list, cardsByOracleId),
+      manaCurve: state.metrics.manaCurve,
+      missingRoles: state.metrics.missingRoles,
+      checklist: evaluateBracketChecklist(cards, bracketRules, config.target_bracket),
+    };
+  };
 
-const TIER_ORDER = { 'primeira-a-sair': 0, legitima: 1, 'sem-folga': 2 };
-
-// Confiança do corte, para o Diogo poder tratar as duas de forma
-// diferente (27 de setembro de 2026): "primeira-a-sair" não depende de
-// nenhum alvo escrito à mão - sem papel, sem sinergia, corte de baixo
-// risco. "legítima"/"sem-folga" dependem da folga contra o alvo do §7.1
-// (ainda por calibrar, §12) - a mesma decisão que troca ramp/remoção por
-// uma criatura nova é a mais arriscada da lista, teu comentário.
-export const CONFIDENCE_BY_TIER = {
-  'primeira-a-sair': 'alta',
-  legitima: 'média — depende de um alvo do §7.1 (§12, ainda por validar)',
-  'sem-folga': 'média — depende de um alvo do §7.1 (§12, ainda por validar)',
-};
-
-function classifyTier(cutInfo, planScore) {
-  if (cutInfo.occupiedRoles.length === 0 && planScore === 0) return 'primeira-a-sair';
-  if (cutInfo.minSlack != null && cutInfo.minSlack > 0) return 'legitima';
-  return 'sem-folga';
-}
-
-// Compara cartas do deck com candidatas pela MESMA fórmula de mérito
-// (§8) - as candidatas ordenam-se só por score de plano (melhor
-// primeiro); o corte ordena-se primeiro pela elegibilidade do §7.1
-// (acima), depois por score de plano (pior primeiro) - nunca por posição.
-// Critério de paragem: maxChanges (§5, ainda sem UI - default explícito
-// aqui, a substituir quando existir), nunca um score alvo. Corte sem
-// substituto nunca acontece - o array de pares é a única saída.
-export function generateRecommendations(
-  deckCards,
-  candidates,
-  gamePlan,
-  cardsByOracleId,
-  { weights = DEFAULT_WEIGHTS, maxChanges = 10, commanderOracleId = null, untouchableIds = new Set(), overrides = [] } = {}
-) {
-  const cutTiers = computeCutTiers(deckCards, cardsByOracleId, overrides);
-
-  const scoredDeck = deckCards
-    .filter((dc) => dc.oracle_id !== commanderOracleId && !untouchableIds.has(dc.oracle_id))
-    .map((dc) => {
-      const card = cardsByOracleId.get(dc.oracle_id);
-      const scored = scoreCard(card, gamePlan, weights);
-      const cutInfo = cutTiers.get(dc.oracle_id);
-      const tier = classifyTier(cutInfo, scored.score);
-      return { card, quantity: dc.quantity, ...scored, ...cutInfo, tier, confidence: CONFIDENCE_BY_TIER[tier] };
-    })
-    .filter((e) => !e.isUniqueFiller) // "protegida" - nunca candidata a corte
-    .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || a.score - b.score || a.card.name.localeCompare(b.card.name));
-
-  const scoredCandidates = candidates
-    .map((card) => ({ card, ...scoreCard(card, gamePlan, weights) }))
-    .sort((a, b) => b.score - a.score);
-
-  const pairCount = Math.min(maxChanges, scoredDeck.length, scoredCandidates.length);
-  const pairs = [];
-  for (let i = 0; i < pairCount; i++) {
-    pairs.push({ cut: scoredDeck[i], add: scoredCandidates[i] });
-  }
-
-  return { pairs, scoredDeck, scoredCandidates };
+  return {
+    pairs,
+    skipped,
+    scoredCandidates,
+    batch: { before: summarize(beforeList), after: summarize(afterList) },
+  };
 }

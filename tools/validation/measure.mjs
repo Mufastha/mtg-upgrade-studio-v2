@@ -3,7 +3,7 @@
 // "X das tuas escolhas no top 10, Y das rejeitadas".
 //
 // Uso (a decklist é dado pessoal, fica fora do repositório):
-//   node tools/validation/measure.mjs "<caminho da decklist>" [validation.json]
+//   node tools/validation/measure.mjs "<caminho da decklist>" [validation.json] [--detalhe]
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,9 @@ import { createDeckConfig } from '../../src/rules/deck-config.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../..');
 
-const [deckPath, validationArg] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const verbose = args.includes('--detalhe');
+const [deckPath, validationArg] = args.filter((a) => !a.startsWith('--'));
 if (!deckPath) {
   console.error('Uso: node tools/validation/measure.mjs "<decklist>" [validation.json]');
   process.exit(1);
@@ -38,7 +40,7 @@ const deckOracleIds = new Set(deckCards.map((c) => c.oracle_id));
 
 const config = createDeckConfig({ deckId: 'validacao', name: 'Torneio B3', targetBracket: validation.target_bracket ?? 3 });
 
-const { commander, candidates, steps } = generateCandidates(cards, {
+const { commander, candidates, steps, reviewByOracleId } = generateCandidates(cards, {
   commanderOracleId,
   deckOracleIds,
   sourcePreconBaseCards: [...deckOracleIds],
@@ -47,10 +49,11 @@ const { commander, candidates, steps } = generateCandidates(cards, {
 });
 const gamePlan = validation.game_plan ?? seedGamePlan(commander);
 
-const { pairs } = generateRecommendations(deckCards, candidates, gamePlan, cardsByOracleId, {
+const { pairs, skipped, batch } = generateRecommendations(deckCards, candidates, gamePlan, cardsByOracleId, {
+  config,
+  bracketRules,
   commanderOracleId,
-  maxChanges: config.max_changes,
-  untouchableIds: new Set(config.untouchable),
+  reviewByOracleId,
 });
 
 console.log(
@@ -87,3 +90,22 @@ function report(label, names, verdict) {
 report('Adições', pairs.map((p) => p.add.card.name), validation.adds);
 console.log('');
 report('Cortes', pairs.map((p) => p.cut.card.name), validation.cuts);
+
+if (verbose) {
+  const { justifyRecommendations } = await import('../../src/rules/recommendation-justification.js');
+  console.log('\nPares:');
+  for (const j of justifyRecommendations(pairs)) console.log(`  [${j.tier}] ${j.summary}`);
+  if (skipped.length > 0) {
+    console.log('\nCortes sem substituto válido (não mostrados como recomendação):');
+    for (const s of skipped) console.log(`  ${s.cut.card.name} — ${s.reason}`);
+  }
+  const { before, after } = batch;
+  console.log('\nLote avaliado como deck (antes → depois):');
+  for (const role of Object.keys(before.counts)) {
+    if (before.counts[role] !== after.counts[role]) console.log(`  ${role}: ${before.counts[role]} → ${after.counts[role]}`);
+  }
+  console.log(`  Game Changers: ${before.gameChangers} → ${after.gameChangers}`);
+  console.log(`  CMC médio (não-terreno): ${before.averageCmc.toFixed(2)} → ${after.averageCmc.toFixed(2)}`);
+  console.log(`  Papéis em falta depois: ${after.missingRoles.map((m) => `${m.role} ${m.have}/${m.target}`).join(', ') || 'nenhum'}`);
+  console.log(`  Checklist depois: ${after.checklist.rows.map((r) => `${r.criterion} ${r.state}`).join('; ')}`);
+}
