@@ -58,172 +58,30 @@ e atualizar a especificação primeiro — não contorná-la em código.
 
 ## Convenções
 
-- Um commit por fase concluída, com mensagem descritiva
+- Um commit por passo concluído, com mensagem descritiva
 - Nomes de cartas em inglês internamente; UI em português
 - Nada de dependências novas sem justificação — a app tem de continuar a servir
   como ficheiros estáticos
+- Testes: `node --test "tests/*.test.mjs"`
+- Dados pessoais (decklists, CSV da ManaBox) ficam fora do repositório
+- Qualquer alteração ao scoring é medida contra o conjunto de validação
+  (§8.6, `node tools/validation/measure.mjs`) e reportada como "X das
+  escolhas do Diogo no top 10, Y das rejeitadas"
 
-## Estado atual
+## Estado atual (30 out 2026)
 
-Fase 1 (fundação de dados) aceite — os três critérios do §11 da
-especificação estão cumpridos e testados contra dados reais do Diogo.
-Fase 2 (análise de deck) por começar, exceto três partes já feitas — ver
-§11 da especificação:
-- **§7.0** (validação de legalidade do deck).
-- **§7.2** (formulário de plano de jogo), 5 de setembro de 2026:
-  `seedGamePlan` (`src/rules/game-plan.js`) copia as `oracle_tags` do
-  commander — a curadoria do resto é do Diogo no formulário, não do
-  código. Painel "Ver plano de jogo" na lista de decks, guardado em
-  `deck.game_plan`. Confirmado com Cloud (`synergy-equipment`/
-  `quick-equip`) vs Tifa (`power-matters`, nenhuma de equipamento) — dois
-  planos distintos do mesmo deck. **Validado pelo Diogo e revisto no
-  mesmo dia:** `cycle-*` filtrado da semente (bookkeeping da Scryfall, já
-  reprovado no teste de dispersão do §7.1 — remover ruído medido, não
-  curadoria); tags semeadas que já são papel do §7.1
-  (`burst-draw`/`draw-engine`/`repeatable-pure-draw` → Draw, no Cloud)
-  ficam anotadas no formulário (`getEstablishedRoleForTag` em
-  `deck-metrics.js`) sem serem removidas sozinhas — o Diogo decide se
-  dilui o eixo de sinergia ao curar. **Pronto para o §8.**
-- **§7.1** (métricas determinísticas por papel), revista no mesmo dia:
-  fiabilidade de uma família de tags apura-se por teste mecânico (como as
-  cartas do catálogo com essa tag se distribuem pelos papéis — converge
-  numa, classifica; espalha-se, não classifica), não por lista fixa; sem
-  métrica agregada a somar baldes; anulação por deck quando o Diogo
-  discorda da classificação global. **Revista de novo em 2 de setembro de
-  2026:** teste de convergência corrido sobre o catálogo todo, 11 tags
-  novas incorporadas por tag exata (nunca prefixo), mecanismo de sugestão
-  incerta implementado (`buildTagRoleHints` em `deck-metrics.js`, n≥25 e
-  ≥80% de concentração) com terceiro estado de anulação `"confirm"` (limpa
-  a incerteza sem mudar a inclusão). Testado contra o catálogo real e o
-  Limit Break — ver §11 da especificação. **Revista uma terceira vez em 5
-  de setembro de 2026:** Draw estava a contar `impulsive-draw` e as duas
-  tags-irmãs (exílio-e-jogar, nunca chega à mão) — erro da tabela
-  original, corrigido; Draw do Limit Break passa de 12 para 9. Essas três
-  tags formam sozinhas o novo 9º papel, **Acesso Temporário** — medido e
-  mostrado, **sem alvo de referência** (um número para um papel de dias
-  não tem base nenhuma, corrigido no mesmo dia depois de um primeiro
-  rascunho tentativo) — testados e rejeitados como candidatos ao mesmo
-  papel:
-  `cost-reducer`, `gives-haste` (armadilha de nome — subproduto de roubo/
-  reanimação, não "haste em massa"), `extra-land`/`play-additional-land`,
-  `ritual`/`ritual-untap` (0–8% de sobreposição com as três, todos já bem
-  servidos noutros papéis). `wheel-one-sided` excluído (26 de 85 cartas
-  dependiam só dela, não compensa confirmar oracle_text carta a carta) e
-  registado na lista de revisão futura do §7.1.
+O histórico está no git e na especificação; aqui só o ponto em que estamos.
 
-Depois de aceite, a Fase 1 recebeu uma ronda de correções vindas de uso
-real: visualizador de coleção e de decks guardados (pesquisa, paginação,
-renomear, apagar), confirmação antes de operações destrutivas (apagar
-coleção, importar JSON), e a correção mais importante — o relatório de
-falhas do importador da ManaBox deixou de depender da rede em tempo real
-para explicar um erro (violava a invariante 10); a razão vem agora de
-`excluded.json`, gerado na build.
-
-**§8 Fases A/B implementadas em 27 de setembro de 2026**
-(`src/rules/candidate-generation.js`, `generateCandidates`) — geração de
-candidatos + filtros duros, sem scoring. Testado contra o Limit Break real
-(catálogo de 21 de setembro): 31 830 → 18 382 (identidade de cor Naya) →
-18 381 (exclui commander) → 18 288 (exclui as 100 cartas do deck). Antes
-de implementar: confirmado que o workflow do catálogo (`build-catalog.yml`)
-correu toda semana sem interrupção durante o interregno (GitHub não o
-desativou por inatividade) — catálogo local desatualizado (28 de agosto)
-foi substituído pelo deploy mais recente do Pages (21 de setembro, 53 Game
-Changers) antes de gerar candidatos. **Gap do `reserved` fechado no mesmo
-dia:** campo acrescentado ao catalog-builder (`tools/catalog-builder/lib/
-catalog.mjs`), efetivo no próximo build — o filtro em si continua por
-implementar (depende de `deck_config`, §5).
-
-**§8 Fase C implementada em 27 de setembro de 2026**
-(`src/rules/recommendation-score.js`, `scoreCard` + `generateRecommendations`),
-resolvendo as duas descobertas do mesmo dia (detalhe no §8 da
-especificação): (a) o plano **pontua, nunca filtra** a Fase A, e as
-`synergy_tags` dividem-se em **eixo genuíno** vs **papel já coberto do
-§7.1** (`getEstablishedRoleForTag`), pesadas por sliders separados
-(`w_eixo=3`, `w_papel=1`, `w_evitar=2`, tentativos); (b) `edhrec_rank`
-saiu do score — fica só como informação ao lado de cada carta. Testado
-contra o Limit Break real: 10 pares corte/adição gerados, ordenados
-corretamente (nenhuma candidata pontua pior do que a carta cortada).
-
-**Empate de 72% em score 0 resolvido no mesmo dia** com elegibilidade de
-corte a partir do §7.1 (`computeCutTiers` em `recommendation-score.js`,
-detalhe no §8 da especificação): protegida (única a preencher um papel
-ou o único terreno — nunca candidata, `Hellkite Tyrant`/`Tifa` no Limit
-Break) / primeira-a-sair (sem papel nenhum, sem sinergia) / legítima
-(papel com folga — `Arcane Signet` cai aqui) / sem-folga. `edhrec_rank`
-continua fora de qualquer critério, mesmo como desempate. **Gap
-encontrado e corrigido no processo:** terrenos vivem fora de `roleCards`
-(têm `LAND_TARGET` próprio) — sem tratamento especial caíam todos em
-"primeira-a-sair" e a primeira lista de corte ficou cheia de terrenos;
-tratados como mais um "papel" sintético antes de fechar. Testado contra
-o Limit Break real: 10 pares corte/adição, nenhum terreno nem ramp
-fundamental na lista.
-
-**Limite conhecido, aberto no §12:** a elegibilidade avalia cada carta
-isoladamente contra o estado atual do deck, não simula cortar várias do
-mesmo papel/terrenos em conjunto no mesmo lote — não é um problema no
-Limit Break (só havia 1 terreno de folga), mas é uma lacuna real para
-decks com folgas maiores.
-
-**Duas correções mais no mesmo dia, depois do Diogo apanhar 3 Equipment
-na lista de corte (Colossus Hammer, Hero's Heirloom, Conqueror's
-Flail):**
-- **`synergy-X` marca quem gosta de X, não X em si** — o eixo premiava
-  cartas que se dão bem com equipment (Sram) e cortava o próprio
-  equipment. Corrigido com `countTypeAxisOverlap`
-  (`recommendation-score.js`): para cada `synergy-X` do eixo, procura a
-  palavra depois de "synergy-" como palavra inteira no `type_line` —
-  sem lista de tipos escrita à mão. Só cobre tipo/subtipo literal
-  (`equipment`, `artifact`, `vehicle`...); `synergy-graveyard`/
-  `synergy-historic` (mecânica, não tipo) ficam sem cobertura, aberto no
-  §12.
-- **`Conqueror's Flail`** ("opponents can't cast spells during your
-  turn") não batia em nenhum papel — a única disrupção do Limit Break
-  ficava sem proteção. `silence` acrescentado a Disrupção (§7.1),
-  verificado por leitura direta de 36 cartas reais (função, não teste de
-  convergência — essa técnica é para tags ambíguas tipo fog, `silence`
-  não é). Disrupção do Limit Break passa de 0 para 1.
-
-Testado contra o Limit Break real depois das duas correções: `Conqueror's
-Flail` protegida (equipment + única disrupção), nenhum Equipment na lista
-de corte, `Hellkite Tyrant`/`Tifa` continuam protegidas.
-
-**Lista aprovada pelo Diogo — Fase D iniciada, 27 de setembro de 2026.**
-Parte determinística implementada primeiro, por ser a que dá o "porquê"
-sem precisar de LLM nenhum (`src/rules/recommendation-justification.js`,
-`justifyPair`/`justifyRecommendations`):
-- **Confiança do corte** (`CONFIDENCE_BY_TIER`,
-  `recommendation-score.js`) — `alta` para "primeira-a-sair" (sem papel,
-  sem sinergia), `média` para cortes por folga (dependem de um alvo do
-  §7.1 ainda por calibrar) — pedido do Diogo para tratar as duas de
-  forma diferente, trocar ramp/remoção é a decisão mais arriscada da
-  lista.
-- **`scoreCard` (Fase C) passou a devolver as tags/palavras que
-  bateram**, não só a contagem (`axisTagsMatched`, `axisTypeMatched`,
-  `roleTagsMatched`) — a justificação usa isto para dizer que papel sai,
-  que eixo/papel entra, nunca só o número do score.
-- `ROLE_LABELS` centralizado em `deck-metrics.js` (era duplicado em
-  `app.js`).
-
-Testado contra o Limit Break real: confiança alta nas primeiras 6, média
-nas últimas 4 (Ramp/Terrenos/Remoção/Proteção com folga); resumos como
-"Sai Austere Command (ocupa Remoção, folga de 1) [...]. Entra Merry,
-Esquire of Rohan (ganha: eixo attacking-matters/synergy-equipment; papel
-Draw)" — mostra que a troca não é remoção-por-remoção.
-
-**Por implementar, aberto:** a reordenação por LLM em si — este projeto
-nunca chamou a Anthropic API (confirmado, sem integração nenhuma no
-repositório). Falta decidir como a app autentica/chama a API antes de
-implementar essa parte; a parte determinística já cobre o "porquê" sem
-LLM. Depois disto: simulação de checklist de bracket (§6.2).
-
-**Decidido mas ainda por implementar** (documentado em §8/§6.4 da
-especificação, para retomar em código sem re-discutir):
-- Cortes por excesso de Game Changers do bracket exigem par de substituição
-  (§8); regras próprias do grupo de torneio (turno esperado, combo com o
-  commander, limiar de mana de combo precoce) ficam em
-  `group_interpretation` dentro de `bracket-rules.json` (§6.4), marcadas
-  como leitura do grupo, não regra oficial.
-
-Dois decks de validação, com papéis diferentes (ver §11 da especificação):
-- **Limit Break** (Cloud, Ex-SOLDIER) — Fases 1 a 3.
-- **Shelob** (aranhas / deathtouch / Food) — Fases 4 e 5.
+- **Fase 1** aceite. **Fase 2:** §7.0, §7.1 e §7.2 feitos (o plano de jogo
+  é curado pelo Diogo a partir de propostas tiradas das 99; sem plano
+  guardado o motor não recomenda).
+- **Motor (§8):** Fases A/B com barreiras de bracket (`data/bracket-rules.json`,
+  `deck_config` mínimo), relevância só a partir de eixos curados, cortes
+  emparelhados por papel e lote avaliado como deck, justificação
+  determinística. Conjunto de validação do Limit Break em
+  `tools/validation/limit-break.json`.
+- **Aberto, por ordem:** sinal de força (§12 ponto 4 — dados do EDHREC
+  investigados, termos de uso proíbem pedidos automatizados e
+  redistribuição, à espera de decisão do Diogo); validar no Shelob que as
+  correções generalizam; alvos do §7.1 e pesos do score sem base medida;
+  reordenação por LLM (falta decidir a autenticação da Anthropic API).
